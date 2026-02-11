@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catatan KU</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Library SheetJS untuk membuat file Excel asli (.xlsx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0f172a; --primary-light: #334155;
+            --accent: #3b82f6; --accent-hover: #2563eb;
+            --bg: #f8fafc; --surface: #ffffff;
+            --text: #334155; --text-light: #94a3b8;
+            --border: #e2e8f0; --danger: #ef4444; --success: #22c55e;
+            --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+        
+        #login-view { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .login-box { background: var(--surface); padding: 2rem; border-radius: var(--radius); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .login-input { width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; font-size: 1rem; text-align: center; letter-spacing: 2px; }
+        
+        #app-view { display: none; max-width: 1400px; margin: 0 auto; padding: 1rem; }
+        header { background: var(--surface); padding: 1rem 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); flex-wrap: wrap; gap: 1rem; }
+        .logo { font-weight: 700; font-size: 1.2rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem; }
+        .user-profile { display: flex; align-items: center; gap: 1rem; font-size: 0.9rem; }
+
+        .nav-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; margin-bottom: 1.5rem; }
+        .nav-btn { padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-weight: 600; text-align: center; transition: all 0.2s; color: var(--text-light); }
+        .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .nav-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.3s ease; }
+        
+        .form-card { background: var(--surface); padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 2rem; }
+        .filter-container { background: #f1f5f9; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+        
+        .form-control { padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.9rem; width: 100%; box-sizing: border-box; }
+        .meta-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+        
+        .cat-tabs { display: flex; overflow-x: auto; gap: 0.5rem; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+        .cat-tab { padding: 0.5rem 1rem; white-space: nowrap; border-radius: 20px; background: #f1f5f9; color: var(--text-light); cursor: pointer; font-size: 0.85rem; font-weight: 600; border: none; }
+        .cat-tab.active { background: var(--accent); color: white; }
+        
+        .cat-pane { display: none; }
+        .cat-pane.active { display: block; }
+
+        .item-row { display: grid; grid-template-columns: 2fr 1.5fr 80px; gap: 1rem; align-items: center; margin-bottom: 0.75rem; }
+        .currency-wrap { position: relative; }
+        .currency-wrap input { 
+            padding-left: 2.2rem; 
+            width: 100%; 
+            box-sizing: border-box; 
+            text-align: right; 
+            font-weight: 600; 
+            letter-spacing: 0.5px;
+        }
+        .currency-wrap span { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); color: var(--text-light); font-size: 0.75rem; font-weight: bold;}
+
+        /* Styling untuk Live Total Baru */
+        .live-total-box {
+            background: #f0fdf4; /* Hijau muda */
+            border: 1px solid #bbf7d0;
+            color: #15803d;
+            padding: 1rem;
+            border-radius: var(--radius);
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .live-total-label { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .live-total-value { font-size: 1.5rem; font-weight: 800; }
+
+        .table-card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; margin-bottom: 2rem; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+        th { background: #f8fafc; font-weight: 600; color: var(--text-light); }
+        tfoot td { background: #f8fafc; font-weight: 700; color: var(--primary); border-top: 2px solid var(--border); }
+        
+        .btn { padding: 0.6rem 1.2rem; border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: 0.2s; font-size: 0.9rem; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+        .btn-danger { background: #fee2e2; color: #b91c1c; }
+        
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 8px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 3000; }
+        .toast.show { opacity: 1; }
+
+        /* Modal Overlay & Styles */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            width: 100%; max-width: 500px; margin: 1rem;
+            max-height: 90vh; overflow-y: auto;
+        }
+
+        @media (max-width: 600px) {
+            .item-row { grid-template-columns: 1fr; gap: 0.5rem; border-bottom: 1px solid #eee; padding-bottom: 1rem; }
+            .filter-container { flex-direction: column; align-items: stretch; }
+            .live-total-box { flex-direction: column; gap: 0.5rem; text-align: center; }
+        }
+        .progress-container { background: #e2e8f0; border-radius: 10px; height: 8px; width: 100%; margin-top: 5px; overflow: hidden; }
+        .progress-bar { background: var(--success); height: 100%; transition: width 0.3s; }
+        .progress-text { font-size: 0.7rem; font-weight: bold; color: var(--text-light); }
+        .status-under { color: var(--danger); }
+        .status-ok { color: var(--success); }
+    </style>
+</head>
+<body>
+
+    <div id="login-view">
+        <div class="login-box">
+            <div style="font-size: 3rem; margin-bottom: 1rem;"><i class="ph ph-lock-key"></i></div>
+            <h2>Catatanku</h2>
+            <p style="color: var(--text-light); margin-bottom: 2rem;">Masukkan Password</p>
+            <input type="password" id="login-pass" class="login-input" placeholder="PASSWORD">
+            <button class="btn btn-primary" style="width:100%" onclick="doLogin()">MASUK</button>
+            <p id="login-msg" style="margin-top:1rem; color: var(--danger); font-size:0.9rem; min-height:1.2rem;"></p>
+        </div>
+    </div>
+
+    <div id="app-view">
+        <header>
+            <div class="logo"><i class="ph ph-safe-2"></i>CATATANKU</div>
+            <div class="user-profile">
+                <div style="text-align: right;">
+                    <div id="u-name" style="font-weight:600;">User</div>
+                    <div id="u-role" style="font-size:0.8rem; color:var(--text-light);">Role</div>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="location.reload()"><i class="ph ph-sign-out"></i></button>
+            </div>
+        </header>
+
+        <div class="nav-grid">
+            <div id="nav-input" class="nav-btn active" onclick="switchTab('input')"><i class="ph ph-pencil-simple"></i> Input</div>
+            <div id="nav-data" class="nav-btn" onclick="switchTab('data')"><i class="ph ph-table"></i> Transaksi</div>
+            <div id="nav-rekap" class="nav-btn" onclick="switchTab('rekap')"><i class="ph ph-chart-bar"></i> Rekap</div>
+            <!-- Tombol Master Config (Hidden by default) -->
+            <div id="nav-config" class="nav-btn" style="display:none;" onclick="switchTab('config')"><i class="ph ph-gear"></i> Master Config</div>
+            <!-- TAMBAHAN: Tombol Input Target -->
+            <div id="nav-targets" class="nav-btn" style="display:none;" onclick="switchTab('targets')"><i class="ph ph-target"></i> Input Target</div>
+        </div>
+
+        <div id="view-input" class="view-section active">
+            <div class="form-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                    <h3 id="form-title" style="margin:0">Input Baru</h3>
+                    <button id="cancel-edit" class="btn btn-sm btn-danger" style="display:none;" onclick="resetForm()">Batal</button>
+                </div>
+                <div class="meta-inputs">
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:700;">Periode</label>
+                        <input type="month" id="input-periode" class="form-control" style="width:100%">
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:700;">Nama</label>
+                        <input type="text" id="input-nama" class="form-control" style="width:100%" placeholder="Nama Lengkap...">
+                    </div>
+                </div>
+                <div id="dynamic-tabs" class="cat-tabs"></div>
+                <div id="dynamic-items"></div>
+                
+                <!-- TAMBAHAN: LIVE TOTAL -->
+                <div class="live-total-box">
+                    <div class="live-total-label">Total:</div>
+                    <div class="live-total-value" id="live-total">Rp 0</div>
+                </div>
+
+                <div style="margin-top: 2rem;">
+                    <button id="btn-submit" class="btn btn-primary" style="width:100%" onclick="submitData()">
+                        <i class="ph ph-floppy-disk"></i> Simpan Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-data" class="view-section">
+            <div class="filter-container">
+                <div>
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Periode</label>
+                    <input type="month" id="filter-data-periode" class="form-control" onchange="renderDataTable()">
+                </div>
+                <div id="filter-desa-container" style="display:none;">
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Desa</label>
+                    <select id="filter-data-desa" class="form-control" onchange="renderDataTable()">
+                        <option value="">Semua Desa</option>
+                    </select>
+                </div>
+                <button class="btn btn-sm" style="border:1px solid #ddd; background:white;" onclick="fetchData()">
+                    <i class="ph ph-arrows-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="table-card">
+                <table id="table-transaksi">
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Periode</th>
+                            <th>Nama</th>
+                            <th>Ds/Klp</th>
+                            <th>Total</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-data"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align:right">GRAND TOTAL</td>
+                            <td id="grand-total-data" style="color:var(--accent)">Rp 0</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div id="view-rekap" class="view-section">
+            <div class="filter-container">
+                <div>
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Periode</label>
+                    <input type="month" id="filter-rekap-periode" class="form-control" onchange="renderRecapTable()">
+                </div>
+                <div id="filter-desa-rekap-container" style="display:none;">
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Desa</label>
+                    <select id="filter-rekap-desa" class="form-control" onchange="renderRecapTable()">
+                        <option value="">Semua Desa</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="downloadExcel()">
+                    <i class="ph ph-file-xls"></i> Download Excel
+                </button>
+            </div>
+            <div class="table-card">
+<table id="table-rekap-data">
+    <thead>
+        <tr>
+            <th>Item Tagihan</th>
+            <th style="text-align:right">Realisasi (Bln Ini)</th>
+            <th style="text-align:right">Total YTD</th>
+            <th style="text-align:right">Target</th>
+            <th width="150">Pencapaian</th>
+        </tr>
+    </thead>
+    <tbody id="table-body-rekap"></tbody>
+    <tfoot>
+        <tr style="background: #f8fafc; font-weight: bold;">
+            <td colspan="4" style="text-align:right">TOTAL REALISASI BULAN INI</td>
+            <td id="grand-total-rekap" style="text-align:right; color:var(--success)">Rp 0</td>
+        </tr>
+    </tfoot>
+</table>
+            </div>
+        </div>
+
+        <!-- TAMBAHAN: VIEW MASTER CONFIG -->
+        <div id="view-config" class="view-section">
+            <div class="form-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                    <h3>Kelola Item Tagihan</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openConfigModal()">+ Tambah Item</button>
+                </div>
+                <div class="table-card">
+                    <table id="table-config">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Kategori</th>
+                                <th>Label Item</th>
+                                <th>Tipe</th>
+                                <th>Akses (Kelompok)</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body-config"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAMBAHAN: VIEW INPUT TARGETS -->
+        <div id="view-targets" class="view-section">
+            <div class="form-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h3>Input Target Anggaran</h3>
+                    <button class="btn btn-sm" onclick="fetchData()"><i class="ph ph-arrows-clockwise"></i> Reload Data</button>
+                </div>
+                <div class="table-card">
+                    <table id="table-targets">
+                        <thead id="thead-targets"></thead>
+                        <tbody id="tbody-targets"></tbody>
+                    </table>
+                </div>
+                <small style="color:var(--text-light); display:block; margin-top:1rem;">
+                    *Klik pada kotak angka untuk mengedit. Penyimpanan otomatis saat pindah kolom (Blur).
+                </small>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="toast" class="toast">Notifikasi</div>
+
+    <!-- TAMBAHAN: MODAL CONFIG -->
+    <div id="config-modal" class="modal-overlay">
+        <div class="form-card modal-content">
+            <h3 id="modal-title-config" style="margin-top:0">Tambah Item</h3>
+            <input type="hidden" id="cfg-old-id">
+            
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:700;">ID Item (Unik)</label>
+                <input type="text" id="cfg-item-id" class="form-control" placeholder="cth: fr, ckm, baru_01">
+            </div>
+            
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:700;">Kode Kategori</label>
+                <input type="text" id="cfg-cat-code" class="form-control" placeholder="cth: A, B, C">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:700;">Judul Kategori</label>
+                <input type="text" id="cfg-cat-title" class="form-control" placeholder="cth: SODAKOH">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:700;">Label Item</label>
+                <input type="text" id="cfg-item-label" class="form-control" placeholder="cth: FR 10%">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; font-weight:700;">Tipe</label>
+                <select id="cfg-tipe" class="form-control">
+                    <option value="Bulanan">Bulanan</option>
+                    <option value="Tahunan">Tahunan</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:1.5rem;">
+                <label style="font-size:0.8rem; font-weight:700;">Hak Akses Kelompok</label>
+                <input type="text" id="cfg-groups" class="form-control" placeholder="Kosongkan untuk SEMUA, atau: Wanaraja, Cinunuk">
+                <small style="color:var(--text-light)">Pisahkan dengan koma jika lebih dari satu.</small>
+            </div>
+
+            <div style="display:flex; gap:1rem;">
+                <button class="btn btn-primary" style="flex:1" onclick="saveConfig()">Simpan</button>
+                <button class="btn" style="flex:1; background:#e2e8f0;" onclick="closeConfigModal()">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyo65StO07OygmbXGwFzoE-FVCGB9u-VfC9S9IL1uv78XxeeZpRMrLhdMlOLJqXiY2H/exec'; 
+
+        let user = null;
+        let configData = [];
+        let allTransactions = [];
+        let isEditing = false;
+        let editId = null;
+        let targetsData = {}; 
+
+        // --- FUNGSI FORMAT RUPIAH ---
+        function parseRupiah(str) {
+            if (!str) return 0;
+            let cleaned = String(str).replace(/\./g, '').replace(/,/g, '.');
+            return parseFloat(cleaned) || 0;
+        }
+
+        function formatRupiah(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function formatInputOnKey(el) {
+            let cursorPosition = el.selectionStart;
+            let originalLength = el.value.length;
+            let value = el.value.replace(/[^0-9]/g, '');
+            el.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            
+            let newLength = el.value.length;
+            if (value !== "") {
+                el.selectionStart = el.selectionEnd = cursorPosition + (newLength - originalLength);
+            }
+            // Panggil fungsi update total setiap kali user mengetik
+            updateLiveTotal();
+        }
+
+        // --- FUNGSI BARU: UPDATE LIVE TOTAL ---
+        function updateLiveTotal() {
+            let total = 0;
+            // Loop semua input uang di form
+            document.querySelectorAll('.money-input').forEach(inp => {
+                total += parseRupiah(inp.value);
+            });
+            // Update tampilan
+            document.getElementById('live-total').innerText = "Rp " + formatRupiah(total);
+        }
+
+        function doLogin() {
+            const pass = document.getElementById('login-pass').value.trim();
+            const msg = document.getElementById('login-msg');
+            if (!pass) return msg.innerText = "Masukkan password!";
+            msg.innerText = "Memproses...";
+            
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'login', password: pass })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    user = res.user;
+                    initApp();
+                } else {
+                    msg.innerText = res.message;
+                }
+            })
+            .catch(e => msg.innerText = "Koneksi Error");
+        }
+
+        function initApp() {
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('app-view').style.display = 'block';
+            document.getElementById('u-name').innerText = user.nama_admin;
+            document.getElementById('u-role').innerText = `${user.role} | ${user.kelompok || user.desa || ''}`;
+            
+            if(user.role === 'Daerah') {
+                document.getElementById('filter-desa-container').style.display = 'block';
+                document.getElementById('filter-desa-rekap-container').style.display = 'block';
+                // TAMBAHKAN INI: Tampilkan tombol Master Config & Targets
+                document.getElementById('nav-config').style.display = 'block';
+                document.getElementById('nav-targets').style.display = 'block';
+            }
+
+            fetchConfig();
+        }
+
+function fetchConfig() {
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        // TAMBAHKAN kelompok: user.kelompok DI SINI
+        body: JSON.stringify({ action: 'get_config', kelompok: user.kelompok }) 
+    })
+    .then(r => r.json())
+    .then(res => {
+        // UPDATE: Saya menambahkan mapping untuk allowed_groups (r[5])
+        // agar saat edit config, data hak akses ikut terbaca.
+        configData = res.config.map(r => ({
+            cat_code: r.cat_code, 
+            cat_title: r.cat_title, 
+            item_id: r.item_id, 
+            item_label: r.item_label,
+            tipe: r.tipe,
+            allowed_groups: r.allowed_groups || "ALL" // Ambil data hak akses
+        }));
+        
+        targetsData = res.targets || {}; 
+        buildForm();
+        fetchData();
+        
+        // Jika user daerah, render tabel config juga
+        if(user.role === 'Daerah') {
+            renderConfigTable();
+        }
+    });
+}
+        function buildForm() {
+            const tabsContainer = document.getElementById('dynamic-tabs');
+            const itemsContainer = document.getElementById('dynamic-items');
+            tabsContainer.innerHTML = ''; itemsContainer.innerHTML = '';
+
+            const categories = {};
+            configData.forEach(item => {
+                if (!categories[item.cat_code]) {
+                    categories[item.cat_code] = { title: item.cat_title, items: [] };
+                }
+                categories[item.cat_code].items.push(item);
+            });
+
+            Object.keys(categories).forEach((code, index) => {
+                const cat = categories[code];
+                const btn = document.createElement('button');
+                btn.className = `cat-tab ${index === 0 ? 'active' : ''}`;
+                btn.id = `tab-btn-${code}`;
+                btn.innerText = `${code}. ${cat.title}`;
+                btn.onclick = () => switchCategory(code);
+                tabsContainer.appendChild(btn);
+
+                const pane = document.createElement('div');
+                pane.id = `pane-${code}`;
+                pane.className = `cat-pane ${index === 0 ? 'active' : ''}`;
+                cat.items.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'item-row';
+                    row.innerHTML = `
+                        <label style="font-size:0.85rem">${item.item_label}</label>
+                        <div class="currency-wrap">
+                            <span>Rp</span>
+                            <input type="text" inputmode="numeric" class="form-control money-input" data-id="${item.item_id}" placeholder="0" oninput="formatInputOnKey(this)">
+                        </div>
+                        <button class="btn btn-sm" style="background:#e2e8f0;" onclick="quickFill(this, 50000)">+50rb</button>
+                    `;
+                    pane.appendChild(row);
+                });
+                itemsContainer.appendChild(pane);
+            });
+            document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
+            // Reset total saat form dibangun
+            updateLiveTotal();
+        }
+
+        function switchCategory(code) {
+            document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.cat-pane').forEach(p => p.classList.remove('active'));
+            document.getElementById(`tab-btn-${code}`).classList.add('active');
+            document.getElementById(`pane-${code}`).classList.add('active');
+        }
+
+        function fetchData() {
+            fetch(SCRIPT_URL)
+            .then(r => r.json())
+            .then(data => {
+                allTransactions = data;
+                updateDesaFilterOptions();
+                renderDataTable();
+                renderRecapTable();
+            });
+        }
+
+        function updateDesaFilterOptions() {
+            if(user.role !== 'Daerah') return;
+            const desas = [...new Set(allTransactions.map(t => t.desa))].filter(Boolean);
+            const selects = [document.getElementById('filter-data-desa'), document.getElementById('filter-rekap-desa')];
+            selects.forEach(sel => {
+                sel.innerHTML = '<option value="">Semua Desa</option>';
+                desas.forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
+            });
+        }
+function renderDataTable() {
+    const tbody = document.getElementById('table-body-data');
+    const filterPeriode = document.getElementById('filter-data-periode').value;
+    const filterDesa = document.getElementById('filter-data-desa').value;
+    
+    tbody.innerHTML = '';
+    let grandTotal = 0;
+
+    const filtered = allTransactions.filter(t => {
+        let match = true;
+        if (user.role === 'Kelompok') match = t.kelompok === user.kelompok;
+        else if (user.role === 'Desa') match = t.desa === user.desa;
+        
+        if (match && filterPeriode) {
+            match = (t.periode && String(t.periode).trim() === filterPeriode);
+        }
+        if (match && user.role === 'Daerah' && filterDesa) {
+            match = (t.desa && String(t.desa).trim() === filterDesa);
+        }
+        return match;
+    });
+
+    filtered.reverse().forEach(t => {
+        let valObj = {};
+        try { valObj = JSON.parse(t.values_json); } catch(e){}
+        const total = Object.values(valObj).reduce((a,b)=>a+(parseFloat(b)||0),0);
+        grandTotal += total;
+
+        const displayDate = t.timestamp ? String(t.timestamp).split(' ')[0] : '-';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${displayDate}</td>
+            <td>${t.periode}</td>
+            <td>${t.nama_warga}</td>
+            <td>${t.desa || '-'}</td>
+            <td style="font-weight:bold; color:var(--accent)">Rp ${total.toLocaleString('id-ID')}</td>
+            <td>
+                <button class="btn btn-sm" onclick="editData('${t.id}')"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteData('${t.id}')"><i class="ph ph-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    document.getElementById('grand-total-data').innerText = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+}
+
+function renderRecapTable() {
+    const tbody = document.getElementById('table-body-rekap');
+    const filterPeriode = document.getElementById('filter-rekap-periode').value;
+    const filterDesa = document.getElementById('filter-rekap-desa').value; // Ambil nilai filter
+    tbody.innerHTML = '';
+    
+    if (!filterPeriode) return;
+
+    const [selectedYear, selectedMonthStr] = filterPeriode.split('-');
+    const selectedMonth = parseInt(selectedMonthStr);
+    
+    // --- PERUBAAN LOGIKA TARGET DI SINI ---
+    let targetKey;
+    if (user.role === 'Kelompok') {
+        targetKey = user.kelompok;
+    } else if (user.role === 'Desa') {
+        targetKey = user.desa;
+    } else if (user.role === 'Daerah') {
+        // Jika akun Daerah:
+        // Jika memilih Desa tertentu di filter, pakai target Desa tersebut.
+        // Jika filter kosong ("Semua Desa"), pakai target "Daerah".
+        targetKey = filterDesa || "Daerah"; 
+    } else {
+        targetKey = "";
+    }
+
+    // Jika targetKey kosong, beri object kosong agar tidak error
+    const currentTargets = targetsData[targetKey] || {}; 
+    
+    const realisasiBlnIni = {}; 
+    const akumulasiYTD = {};           
+    let grandTotalBlnIni = 0;
+
+    // ... (sisa kode function renderRecapTable tetap sama) ...
+    allTransactions.forEach(t => {
+        const tPeriode = String(t.periode).trim(); 
+        const [tYear, tMonthStr] = tPeriode.split('-');
+        const tMonth = parseInt(tMonthStr);
+
+        let matchUser = true;
+        if (user.role === 'Kelompok') matchUser = t.kelompok === user.kelompok;
+        else if (user.role === 'Desa') matchUser = t.desa === user.desa;
+        if (matchUser && user.role === 'Daerah' && filterDesa) matchUser = t.desa === filterDesa;
+
+        if (matchUser && tYear === selectedYear) {
+            let valObj = {};
+            try { valObj = JSON.parse(t.values_json); } catch(e){}
+            for (let [key, val] of Object.entries(valObj)) {
+                const nominal = parseFloat(val) || 0;
+                if (tMonth <= selectedMonth) akumulasiYTD[key] = (akumulasiYTD[key] || 0) + nominal;
+                if (tMonth === selectedMonth) {
+                    realisasiBlnIni[key] = (realisasiBlnIni[key] || 0) + nominal;
+                    grandTotalBlnIni += nominal;
+                }
+            }
+        }
+    });
+
+    configData.forEach(conf => {
+        const id = conf.item_id;
+        const bln = realisasiBlnIni[id] || 0;
+        const ytd = akumulasiYTD[id] || 0;
+        const tipe = (conf.tipe || "Tahunan").trim();
+        const targetVal = parseFloat(currentTargets[id]) || 0;
+        
+        let persen = 0;
+        let labelTarget = tipe === "Bulanan" ? "Target/Bln" : "Target/Thn";
+
+        if (tipe === "Bulanan") {
+            persen = targetVal > 0 ? Math.round((bln / targetVal) * 100) : 0;
+        } else {
+            persen = targetVal > 0 ? Math.round((ytd / targetVal) * 100) : 0;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div style="font-weight:600; font-size:0.85rem;">${conf.item_label}</div>
+                <div style="font-size:0.6rem; color:#fff; background:${tipe === 'Bulanan' ? '#8b5cf6' : '#3b82f6'}; padding:1px 6px; border-radius:10px; display:inline-block; margin-top:2px;">
+                    ${tipe}
+                </div>
+            </td>
+            <td style="text-align:right; font-weight:700; color:var(--accent);">
+                Rp ${bln.toLocaleString('id-ID')}
+            </td>
+            <td style="text-align:right; font-size:0.8rem; color:var(--text-light);">
+                ${tipe === 'Bulanan' ? '-' : 'Rp ' + ytd.toLocaleString('id-ID')}
+            </td>
+            <td style="text-align:right;">
+                <div style="font-size:0.8rem; font-weight:600;">Rp ${targetVal.toLocaleString('id-ID')}</div>
+                <div style="font-size:0.55rem; color:var(--text-light); text-transform:uppercase;">${labelTarget}</div>
+            </td>
+            <td>
+                <div style="font-size:0.7rem; margin-bottom:3px; display:flex; justify-content:space-between;">
+                    <span style="font-weight:bold">${persen}%</span>
+                    <span style="font-size:0.6rem; opacity:0.7">${tipe === 'Tahunan' ? 'YTD' : 'REAL'}</span>
+                </div>
+                <div class="progress-container" style="background:#e2e8f0; height:6px; border-radius:10px; overflow:hidden;">
+                    <div class="progress-bar" style="width: ${persen > 100 ? 100 : persen}%; height:100%; background: ${persen >= 100 ? '#22c55e' : (tipe === 'Bulanan' ? '#a78bfa' : '#3b82f6')}; transition:0.3s;"></div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('grand-total-rekap').innerText = `Rp ${grandTotalBlnIni.toLocaleString('id-ID')}`;
+}
+        function submitData() {
+            const btn = document.getElementById('btn-submit');
+            const periode = document.getElementById('input-periode').value;
+            const nama = document.getElementById('input-nama').value;
+            if(!periode || !nama) return showToast("Periode & Nama harus diisi!");
+
+            const values = {};
+            let hasVal = false;
+            document.querySelectorAll('.money-input').forEach(inp => {
+                const v = parseRupiah(inp.value); 
+                if(v > 0) { values[inp.dataset.id] = v; hasVal = true; }
+            });
+            if(!hasVal) return showToast("Isi minimal satu nominal!");
+
+            btn.disabled = true; btn.innerText = "Menyimpan...";
+            const payload = {
+                action: isEditing ? 'update' : 'create',
+                id: editId, kelompok: user.kelompok, desa: user.desa, admin: user.nama_admin,
+                role: user.role, periode: periode, nama_warga: nama, values: values
+            };
+
+            fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+            .then(r => r.json())
+            .then(res => {
+                if(res.status === 'success') {
+                    showToast("Berhasil!");
+                    resetForm(); fetchData();
+                    if(isEditing) switchTab('data');
+                }
+                btn.disabled = false; btn.innerHTML = `<i class="ph ph-floppy-disk"></i> Simpan Data`;
+            })
+            .catch(() => { showToast("Error Koneksi"); btn.disabled = false; });
+        }
+
+        function editData(id) {
+            const t = allTransactions.find(x => x.id == id);
+            if(!t) return;
+            isEditing = true; editId = id;
+            document.getElementById('form-title').innerText = "Edit Data";
+            document.getElementById('cancel-edit').style.display = 'block';
+            document.getElementById('input-periode').value = t.periode;
+            document.getElementById('input-nama').value = t.nama_warga;
+            document.querySelectorAll('.money-input').forEach(i => i.value = '');
+            try {
+                const vals = JSON.parse(t.values_json);
+                for(let key in vals) {
+                    const input = document.querySelector(`.money-input[data-id="${key}"]`);
+                    if(input) {
+                        input.value = formatRupiah(vals[key]);
+                    }
+                }
+            } catch(e){}
+            // Update total live setelah data edit dimasukkan ke field
+            updateLiveTotal();
+            switchTab('input');
+        }
+
+        function resetForm() {
+            isEditing = false; editId = null;
+            document.getElementById('form-title').innerText = "Input Baru";
+            document.getElementById('cancel-edit').style.display = 'none';
+            document.getElementById('input-nama').value = '';
+            document.querySelectorAll('.money-input').forEach(i => i.value = '');
+            // Reset live total ke 0
+            updateLiveTotal();
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`nav-${tabName}`).classList.add('active');
+            document.getElementById(`view-${tabName}`).classList.add('active');
+            
+            // Jika masuk tab config/targets, render tabelnya
+            if(tabName === 'config' && user.role === 'Daerah') {
+                renderConfigTable();
+            }
+            // TAMBAHAN LOGIKA TAB TARGETS
+            if(tabName === 'targets' && user.role === 'Daerah') {
+                renderTargetsTable();
+            }
+        }
+
+        function quickFill(btn, amount) {
+            const inp = btn.parentElement.querySelector('input');
+            let currentVal = parseRupiah(inp.value);
+            let newVal = currentVal + amount;
+            inp.value = formatRupiah(newVal);
+            // Update live total saat quick fill dipencet
+            updateLiveTotal();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+        
+function deleteData(id) {
+    if(!confirm("Yakin ingin menghapus data ini?")) return;
+    
+    // Tampilkan indikator loading (opsional, tapi bagus UX)
+    const btn = event.currentTarget;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i>'; // Ikon loading
+    btn.disabled = true;
+
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === 'success') {
+            showToast("Data dihapus");
+            fetchData(); // Refresh tabel
+        } else {
+            // PERUBAAN: Menampilkan pesan error spesifik dari server
+            showToast("Gagal: " + res.message);
+        }
+    })
+    .catch(e => {
+        console.error(e);
+        showToast("Error koneksi ke server");
+    })
+    .finally(() => {
+        // Kembalikan tombol ke kondisi semula
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    });
+}
+async function downloadExcel() {
+    const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
+    const filterDesa = document.getElementById('filter-rekap-desa').value;
+
+    if (!filterPeriodeRaw) return showToast("Pilih periode dulu!");
+
+    const [year, month] = filterPeriodeRaw.split('-');
+    const dateObj = new Date(year, month - 1);
+    const namaPeriode = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    
+    // Persiapan Nama untuk Header
+    let namaKelompok = (user.role === 'Kelompok' ? user.kelompok : ".........").toUpperCase();
+    let namaDesaDisplay = (user.desa || ".........").toUpperCase();
+    
+    if (user.role === 'Daerah') {
+        if(filterDesa) {
+            namaDesaDisplay = filterDesa.toUpperCase();
+        } else {
+            namaDesaDisplay = ""; // Kosongkan jika daerah memilih "Semua Desa"
+        }
+    }
+
+    // --- PERBAIKAN: LOGIKA FILTER KATEGORI BERDASARKAN ROLE ---
+    // Daerah: A, B, C, D, E
+    // Desa: A, B, C, D, E, F
+    // Kelompok: Semua (A, B, C, D, E, F, G, dst)
+    let allowedCategories = [];
+    if (user.role === 'Daerah') {
+        allowedCategories = ['A', 'B', 'C', 'D'];
+    } else if (user.role === 'Desa') {
+        allowedCategories = ['A', 'B', 'C', 'D', 'E'];
+    }
+    // Kelompok: biarkan array kosong agar semua kategori termasuk G muncul
+    // -------------------------------------------------------------
+
+    // --- LOGIKA PENENTUAN JUDUL (HEADER) ---
+    let reportTitle = "";
+    let reportSubtitle = "";
+    let reportPeriod = "PERIODE " + namaPeriode;
+
+    if (user.role === 'Kelompok') {
+        // 1. Akun Kelompok
+        reportTitle = "REKAPITULASI HIBAH BULANAN KELOMPOK KE DESA";
+        reportSubtitle = `KELOMPOK ${namaKelompok} DESA ${namaDesaDisplay}`;
+    } 
+    else if (user.role === 'Desa') {
+        // 2. Akun Desa
+        reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
+        reportSubtitle = `DESA ${namaDesaDisplay}`;
+    } 
+    else if (user.role === 'Daerah') {
+        if (filterDesa) {
+            // 3. Akun Daerah memilih Desa Tertentu
+            reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
+            reportSubtitle = `DESA ${namaDesaDisplay}`;
+        } else {
+            // 4. Akun Daerah memilih Semua Desa
+            reportTitle = "REKAPITULASI HIBAH BULANAN DAERAH";
+            reportSubtitle = ""; // Kosong sesuai request
+        }
+    }
+
+    // --- LOGIKA TARGET ---
+    let targetKey;
+    if (user.role === 'Kelompok') {
+        targetKey = user.kelompok;
+    } else if (user.role === 'Desa') {
+        targetKey = user.desa;
+    } else if (user.role === 'Daerah') {
+        targetKey = filterDesa || "Daerah";
+    } else {
+        targetKey = "";
+    }
+
+    const currentTargets = targetsData[targetKey] || {};
+    
+    // --- PENGHITUNGAN DATA ---
+    const categorizedData = {};
+    configData.forEach(conf => {
+        // --- CEK FILTER KATEGORI ---
+        // Jika ada kategori yang dibatasi DAN kategori item saat ini TIDAK ada di daftar yang diizinkan, maka SKIP (lewati)
+        if (allowedCategories.length > 0 && !allowedCategories.includes(conf.cat_code.toUpperCase())) {
+            return; 
+        }
+        // ---------------------------
+
+        if (!categorizedData[conf.cat_title]) categorizedData[conf.cat_title] = [];
+        
+        const realisasiBln = allTransactions.filter(t => {
+            const tPeriode = String(t.periode).trim();
+            let matchRole = true;
+
+            if (user.role === 'Kelompok') {
+                matchRole = t.kelompok === user.kelompok;
+            } else if (user.role === 'Desa') {
+                matchRole = t.desa === user.desa;
+            } else if (user.role === 'Daerah') {
+                if (filterDesa) {
+                    matchRole = t.desa === filterDesa;
+                }
+            }
+
+            return tPeriode === filterPeriodeRaw && matchRole;
+        }).reduce((acc, t) => {
+            let vals = {}; try { vals = JSON.parse(t.values_json); } catch(e){}
+            return acc + (parseFloat(vals[conf.item_id]) || 0);
+        }, 0);
+
+        categorizedData[conf.cat_title].push({
+            label: conf.item_label,
+            target: parseFloat(currentTargets[conf.item_id]) || 0,
+            realisasi: realisasiBln
+        });
+    });
+
+    // --- MEMBUAT EXCEL ---
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Laporan', {
+        pageSetup: { paperSize: 9, orientation: 'portrait' }
+    });
+
+    worksheet.mergeCells('A1:E1');
+    worksheet.mergeCells('A2:E2');
+    worksheet.mergeCells('A3:E3');
+    
+    // Set Judul Baru
+    const titleRow = worksheet.getCell('A1');
+    titleRow.value = reportTitle;
+    titleRow.font = { bold: true, size: 14 };
+    titleRow.alignment = { horizontal: 'center' };
+
+    // Set Subtitle
+    const subtitleRow = worksheet.getCell('A2');
+    subtitleRow.value = reportSubtitle;
+    subtitleRow.font = { bold: true, size: 11 };
+    subtitleRow.alignment = { horizontal: 'center' };
+
+    // Set Periode
+    const periodRow = worksheet.getCell('A3');
+    periodRow.value = reportPeriod;
+    periodRow.font = { bold: true, size: 11 };
+    periodRow.alignment = { horizontal: 'center' };
+
+    // Header Tabel
+    const headerRow = worksheet.addRow(['NO', 'URAIAN', 'TARGET', 'REALISASI', 'KETERANGAN']);
+    headerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        cell.alignment = { horizontal: 'center' };
+    });
+
+    // Isi Data
+    let counter = 1;
+    let totalTarget = 0;
+    let totalRealisasi = 0;
+
+    for (const [catTitle, items] of Object.entries(categorizedData)) {
+        const catRow = worksheet.addRow(['', catTitle.toUpperCase(), '', '', '']);
+        catRow.getCell(2).font = { bold: true };
+        
+        items.forEach(item => {
+            totalTarget += item.target;
+            totalRealisasi += item.realisasi;
+            const row = worksheet.addRow([counter++, item.label, item.target, item.realisasi, ""]);
+            row.getCell(3).numFmt = '#,##0';
+            row.getCell(4).numFmt = '#,##0';
+        });
+    }
+
+    // Footer Total
+    const footerRow = worksheet.addRow(['', 'TOTAL KESELURUHAN', totalTarget, totalRealisasi, '']);
+    footerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    });
+    footerRow.getCell(3).numFmt = '#,##0';
+    footerRow.getCell(4).numFmt = '#,##0';
+
+    // Styling Border
+    worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber >= 5) {
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+                };
+                if (cell.address.startsWith('A') || cell.address.startsWith('C') || cell.address.startsWith('D')) {
+                    cell.alignment = { horizontal: 'center' };
+                }
+            });
+        }
+    });
+
+    // Lebar Kolom
+    worksheet.getColumn(1).width = 5;
+    worksheet.getColumn(2).width = 45;
+    worksheet.getColumn(3).width = 18;
+    worksheet.getColumn(4).width = 18;
+    worksheet.getColumn(5).width = 20;
+
+    // Nama File Dinamis (Opsional: Supaya file lebih rapi saat didownload)
+    let fileName = "";
+    if (user.role === 'Kelompok') {
+        fileName = `Laporan_Kelompok_${namaKelompok}_${filterPeriodeRaw}.xlsx`;
+    } else if (user.role === 'Desa') {
+        fileName = `Laporan_Desa_${namaDesaDisplay}_${filterPeriodeRaw}.xlsx`;
+    } else if (user.role === 'Daerah') {
+        if (filterDesa) {
+            fileName = `Laporan_Desa_${filterDesa}_${filterPeriodeRaw}.xlsx`;
+        } else {
+            fileName = `Laporan_Daerah_Keseluruhan_${filterPeriodeRaw}.xlsx`;
+        }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+    showToast("File Excel berhasil didownload!");
+}
+
+// --- FITUR BARU: MASTER CONFIG CRUD ---
+
+function renderConfigTable() {
+    const tbody = document.getElementById('table-body-config');
+    tbody.innerHTML = '';
+
+    configData.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>${item.item_id}</b></td>
+            <td>${item.cat_title}</td>
+            <td>${item.item_label}</td>
+            <td><span style="font-size:0.75rem; background:${item.tipe==='Bulanan'?'#a78bfa':'#3b82f6'}; color:white; padding:2px 6px; border-radius:4px;">${item.tipe}</span></td>
+            <td>${item.allowed_groups || "ALL"}</td>
+            <td>
+                <button class="btn btn-sm" onclick="editConfig('${item.item_id}')"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteConfig('${item.item_id}')"><i class="ph ph-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openConfigModal(isEdit = false) {
+    document.getElementById('config-modal').style.display = 'flex';
+    document.getElementById('modal-title-config').innerText = isEdit ? "Edit Item" : "Tambah Item";
+    
+    if(!isEdit) {
+        // Reset form
+        document.getElementById('cfg-old-id').value = '';
+        document.getElementById('cfg-item-id').value = '';
+        document.getElementById('cfg-cat-code').value = '';
+        document.getElementById('cfg-cat-title').value = '';
+        document.getElementById('cfg-item-label').value = '';
+        document.getElementById('cfg-tipe').value = 'Bulanan';
+        document.getElementById('cfg-groups').value = '';
+    }
+}
+
+function closeConfigModal() {
+    document.getElementById('config-modal').style.display = 'none';
+}
+
+function editConfig(id) {
+    const item = configData.find(x => x.item_id === id);
+    if(!item) return;
+
+    openConfigModal(true);
+    document.getElementById('cfg-old-id').value = item.item_id;
+    document.getElementById('cfg-item-id').value = item.item_id;
+    document.getElementById('cfg-cat-code').value = item.cat_code;
+    document.getElementById('cfg-cat-title').value = item.cat_title;
+    document.getElementById('cfg-item-label').value = item.item_label;
+    document.getElementById('cfg-tipe').value = item.tipe;
+    document.getElementById('cfg-groups').value = item.allowed_groups || "";
+}
+
+function deleteConfig(id) {
+    if(!confirm("Yakin ingin menghapus item config ini? Item ini akan hilang dari form input semua user!")) return;
+    
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete_config', item_id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === 'success') {
+            showToast(res.message);
+            fetchConfig(); // Reload data
+            renderConfigTable();
+        } else {
+            showToast("Gagal: " + res.message);
+        }
+    });
+}
+
+function saveConfig() {
+    const oldId = document.getElementById('cfg-old-id').value;
+    const itemId = document.getElementById('cfg-item-id').value.trim();
+    const catCode = document.getElementById('cfg-cat-code').value.trim();
+    const catTitle = document.getElementById('cfg-cat-title').value.trim();
+    const itemLabel = document.getElementById('cfg-item-label').value.trim();
+    const tipe = document.getElementById('cfg-tipe').value;
+    const groups = document.getElementById('cfg-groups').value.trim();
+
+    if(!itemId || !catCode || !catTitle || !itemLabel) return showToast("Lengkapi data wajib!");
+
+    const action = oldId ? 'update_config' : 'create_config';
+    
+    const payload = {
+        action: action,
+        item_id: itemId,
+        cat_code: catCode,
+        cat_title: catTitle,
+        item_label: itemLabel,
+        tipe: tipe,
+        allowed_groups: groups || "ALL"
+    };
+
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === 'success') {
+            showToast(res.message);
+            closeConfigModal();
+            fetchConfig(); // Reload config agar form input berubah
+            renderConfigTable();
+        } else {
+            showToast("Error: " + res.message);
+        }
+    });
+}
+
+// --- FITUR BARU: INPUT TARGETS ---
+
+function renderTargetsTable() {
+    const thead = document.getElementById('thead-targets');
+    const tbody = document.getElementById('tbody-targets');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    if (!targetsData || Object.keys(targetsData).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem;">Belum ada data Target</td></tr>';
+        return;
+    }
+
+    // 1. Buat Header
+    let headerHTML = '<tr><th style="position:sticky; left:0; background:#f8fafc; z-index:10;">Identitas (Kelompok/Desa)</th>';
+    
+    // Ambil daftar Item ID dari configData untuk urutan kolom
+    let itemsList = configData.map(c => c.item_id);
+    if (itemsList.length === 0) {
+        // Fallback jika config belum load
+        const firstKey = Object.keys(targetsData)[0];
+        itemsList = Object.keys(targetsData[firstKey] || {});
+    }
+
+    itemsList.forEach(itemId => {
+        // Cari label item dari config
+        const itemConf = configData.find(c => c.item_id === itemId);
+        const label = itemConf ? itemConf.item_label : itemId;
+        headerHTML += `<th style="min-width:120px; text-align:center;">${label}</th>`;
+    });
+    headerHTML += '</tr>';
+    thead.innerHTML = headerHTML;
+
+    // 2. Buat Baris Data
+    Object.keys(targetsData).forEach(identity => {
+        const tr = document.createElement('tr');
+        // Kolom Nama (Fixed)
+        let rowHTML = `<td style="font-weight:bold; position:sticky; left:0; background:white; z-index:5; border-right:2px solid #ddd;">${identity}</td>`;
+        
+        const dataRow = targetsData[identity];
+
+        itemsList.forEach(itemId => {
+            const val = dataRow[itemId] || 0;
+            // Input number
+            // onblur = ketika user klik keluar input, maka simpan
+            rowHTML += `
+                <td style="text-align:center;">
+                    <input type="number" 
+                           class="target-input" 
+                           value="${val}" 
+                           style="width:100px; text-align:center; padding:5px; border:1px solid #ddd; border-radius:4px;"
+                           onblur="updateTarget(this, '${identity}', '${itemId}')"
+                           onchange="this.style.background='#dcfce7'; setTimeout(()=>this.style.background='white', 500)">
+                </td>
+            `;
+        });
+
+        tr.innerHTML = rowHTML;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateTarget(inputEl, identity, itemId) {
+    const newValue = inputEl.value;
+    
+    // Tampilkan loading sederhana pada input
+    const originalBg = inputEl.style.background;
+    inputEl.style.background = '#fef9c3'; // Kuning loading
+
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+            action: 'update_target',
+            identity: identity,
+            item_id: itemId,
+            value: newValue
+        })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === 'success') {
+            // Sukses
+            inputEl.style.background = '#dcfce7'; // Hijau sukses
+            setTimeout(() => inputEl.style.background = 'white', 1000);
+            
+            // Update lokal agar tidak perlu reload halaman
+            if(targetsData[identity]) {
+                targetsData[identity][itemId] = parseFloat(newValue) || 0;
+            }
+        } else {
+            // Error
+            alert("Gagal menyimpan: " + res.message);
+            inputEl.style.background = '#fee2e2'; // Merah error
+        }
+    })
+    .catch(e => {
+        console.error(e);
+        inputEl.style.background = '#fee2e2';
+    });
+}
+
+    </script>
+</body>
+</html>
