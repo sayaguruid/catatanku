@@ -20,9 +20,54 @@
         }
         body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
         
-        #login-view { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .login-box { background: var(--surface); padding: 2rem; border-radius: var(--radius); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        .login-input { width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 1rem; font-size: 1rem; text-align: center; letter-spacing: 2px; }
+               /* --- UPDATE LOGIN STYLE --- */
+        #login-view { 
+            position: fixed; 
+            inset: 0; 
+            background: var(--bg); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 1000; 
+        }
+        
+        .login-box { 
+            background: var(--surface); 
+            padding: 2.5rem 2rem; /* Padding atas bawah diperbesar agar lebih lega */
+            border-radius: var(--radius); 
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); /* Bayangan lebih halus */
+            width: 100%; 
+            max-width: 380px; /* Lebar maksimal disesuaikan agar tidak terlalu lebar */
+            text-align: center; 
+        }
+
+        .login-input { 
+            width: 100%; 
+            padding: 0.85rem 1rem; /* Tinggi kolom input disesuaikan agar proporsional */
+            border: 1px solid var(--border); 
+            border-radius: var(--radius); 
+            margin-bottom: 1.5rem; /* Jarak ke tombol dibuat agak renggang */
+            font-size: 1rem; 
+            text-align: center; 
+            letter-spacing: 2px;
+            font-family: 'Inter', sans-serif; /* Samakan font dengan body */
+            box-sizing: border-box; /* Penting agar padding tidak merusak lebar */
+            transition: all 0.2s ease; /* Animasi halus */
+        }
+
+        /* Efek saat kolom password diklik */
+        .login-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); /* Efek cahaya biru */
+        }
+        
+        /* Tombol Masuk disesuaikan agar pas dengan input */
+        .login-box .btn {
+            justify-content: center; /* Teks tombol di tengah */
+            padding: 0.85rem; /* Tinggi tombol sama dengan input */
+            font-size: 1rem;
+        }
         
         #app-view { display: none; max-width: 1400px; margin: 0 auto; padding: 1rem; }
         header { background: var(--surface); padding: 1rem 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); flex-wrap: wrap; gap: 1rem; }
@@ -170,7 +215,7 @@
                 
                 <!-- TAMBAHAN: LIVE TOTAL -->
                 <div class="live-total-box">
-                    <div class="live-total-label">Total:</div>
+                    <div class="live-total-label">Total Input:</div>
                     <div class="live-total-value" id="live-total">Rp 0</div>
                 </div>
 
@@ -347,7 +392,33 @@
                 <input type="text" id="cfg-groups" class="form-control" placeholder="Kosongkan untuk SEMUA, atau: Wanaraja, Cinunuk">
                 <small style="color:var(--text-light)">Pisahkan dengan koma jika lebih dari satu.</small>
             </div>
+<!-- Tambahkan kode ini di dalam modal config, sebelum tombol Simpan/Batal -->
+<div style="margin-bottom:1rem; padding:1rem; background:#f0fdf4; border:1px dashed #22c55e; border-radius:8px;">
+    <label style="font-size:0.8rem; font-weight:700; color:#15803d; display:block; margin-bottom:0.5rem;">
+        <i class="ph ph-arrows-split"></i> FITUR PEMBAGIAN OTOMATIS (SPLIT)
+    </label>
+    
+    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+        <input type="checkbox" id="cfg-is-split" style="width:20px; height:20px;">
+        <label for="cfg-is-split" style="font-size:0.9rem;">Aktifkan Pembagian Otomatis?</label>
+    </div>
 
+    <div id="split-inputs" style="display:none; grid-template-columns: repeat(3, 1fr); gap:0.5rem;">
+        <div>
+            <label style="font-size:0.7rem;">% Kelompok (Ke Kode F)</label>
+            <input type="number" id="cfg-split-kel" class="form-control" placeholder="0" value="0">
+        </div>
+        <div>
+            <label style="font-size:0.7rem;">% Desa (Ke Kode E)</label>
+            <input type="number" id="cfg-split-desa" class="form-control" placeholder="0" value="0">
+        </div>
+        <div>
+            <label style="font-size:0.7rem;">% Daerah (Tetap Kode C)</label>
+            <input type="number" id="cfg-split-dah" class="form-control" placeholder="0" value="0">
+        </div>
+    </div>
+    <small style="color:#166534; display:block; margin-top:0.3rem;">*Total persentase harus 100%. Kelompok masuk otomatis ke Kode F, Desa ke Kode E.</small>
+</div>
             <div style="display:flex; gap:1rem;">
                 <button class="btn btn-primary" style="flex:1" onclick="saveConfig()">Simpan</button>
                 <button class="btn" style="flex:1; background:#e2e8f0;" onclick="closeConfigModal()">Batal</button>
@@ -448,17 +519,19 @@ function fetchConfig() {
     })
     .then(r => r.json())
     .then(res => {
-        // UPDATE: Saya menambahkan mapping untuk allowed_groups (r[5])
-        // agar saat edit config, data hak akses ikut terbaca.
-        configData = res.config.map(r => ({
-            cat_code: r.cat_code, 
-            cat_title: r.cat_title, 
-            item_id: r.item_id, 
-            item_label: r.item_label,
-            tipe: r.tipe,
-            allowed_groups: r.allowed_groups || "ALL" // Ambil data hak akses
-        }));
-        
+configData = res.config.map(r => ({
+    cat_code: r.cat_code, 
+    cat_title: r.cat_title, 
+    item_id: r.item_id, 
+    item_label: r.item_label,
+    tipe: r.tipe,
+    allowed_groups: r.allowed_groups || "ALL",
+    // TAMBAHKAN 4 BARIS INI:
+    is_split: r.is_split || false,
+    split_kel: r.split_kel || 0,
+    split_desa: r.split_desa || 0,
+    split_daerah: r.split_daerah || 0
+}));
         targetsData = res.targets || {}; 
         buildForm();
         fetchData();
@@ -506,11 +579,38 @@ function fetchConfig() {
                         <button class="btn btn-sm" style="background:#e2e8f0;" onclick="quickFill(this, 50000)">+50rb</button>
                     `;
                     pane.appendChild(row);
+                    
+                    // --- PREVIEW SPLIT (VISUALISASI OTOMATIS KE E & F) ---
+                    if (item.is_split) {
+                        const inp = row.querySelector('.money-input'); 
+                        const previewDiv = document.createElement('div');
+                        previewDiv.className = 'split-preview';
+                        previewDiv.style.fontSize = '0.7rem';
+                        previewDiv.style.color = '#64748b';
+                        previewDiv.style.marginTop = '4px';
+                        previewDiv.style.padding = '4px';
+                        previewDiv.style.background = '#f1f5f9';
+                        previewDiv.style.borderRadius = '4px';
+                        // Teks diperbarui sesuai permintaan agar jelas masuk ke Kode F dan E
+                        previewDiv.innerHTML = '<i class="ph ph-calculator"></i> <b>Otomatis:</b> <span class="val-kel">0</span> (Ke F) | <span class="val-desa">0</span> (Ke E) | <span class="val-dah">0</span> (Tetap C)';
+                        
+                        inp.addEventListener('input', () => {
+                            const total = parseRupiah(inp.value);
+                            const pKel = (total * (item.split_kel || 0)) / 100;
+                            const pDesa = (total * (item.split_desa || 0)) / 100;
+                            const pDah = (total * (item.split_daerah || 0)) / 100;
+                            
+                            previewDiv.querySelector('.val-kel').innerText = formatRupiah(pKel);
+                            previewDiv.querySelector('.val-desa').innerText = formatRupiah(pDesa);
+                            previewDiv.querySelector('.val-dah').innerText = formatRupiah(pDah);
+                        });
+                        row.appendChild(previewDiv); 
+                    }
+                    
                 });
                 itemsContainer.appendChild(pane);
             });
             document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
-            // Reset total saat form dibangun
             updateLiveTotal();
         }
 
@@ -541,6 +641,7 @@ function fetchConfig() {
                 desas.forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
             });
         }
+
 function renderDataTable() {
     const tbody = document.getElementById('table-body-data');
     const filterPeriode = document.getElementById('filter-data-periode').value;
@@ -591,7 +692,7 @@ function renderDataTable() {
 function renderRecapTable() {
     const tbody = document.getElementById('table-body-rekap');
     const filterPeriode = document.getElementById('filter-rekap-periode').value;
-    const filterDesa = document.getElementById('filter-rekap-desa').value; // Ambil nilai filter
+    const filterDesa = document.getElementById('filter-rekap-desa').value; 
     tbody.innerHTML = '';
     
     if (!filterPeriode) return;
@@ -599,29 +700,23 @@ function renderRecapTable() {
     const [selectedYear, selectedMonthStr] = filterPeriode.split('-');
     const selectedMonth = parseInt(selectedMonthStr);
     
-    // --- PERUBAAN LOGIKA TARGET DI SINI ---
     let targetKey;
     if (user.role === 'Kelompok') {
         targetKey = user.kelompok;
     } else if (user.role === 'Desa') {
         targetKey = user.desa;
     } else if (user.role === 'Daerah') {
-        // Jika akun Daerah:
-        // Jika memilih Desa tertentu di filter, pakai target Desa tersebut.
-        // Jika filter kosong ("Semua Desa"), pakai target "Daerah".
         targetKey = filterDesa || "Daerah"; 
     } else {
         targetKey = "";
     }
 
-    // Jika targetKey kosong, beri object kosong agar tidak error
     const currentTargets = targetsData[targetKey] || {}; 
     
     const realisasiBlnIni = {}; 
     const akumulasiYTD = {};           
     let grandTotalBlnIni = 0;
 
-    // ... (sisa kode function renderRecapTable tetap sama) ...
     allTransactions.forEach(t => {
         const tPeriode = String(t.periode).trim(); 
         const [tYear, tMonthStr] = tPeriode.split('-');
@@ -695,12 +790,16 @@ function renderRecapTable() {
 
     document.getElementById('grand-total-rekap').innerText = `Rp ${grandTotalBlnIni.toLocaleString('id-ID')}`;
 }
+
+        // --- LOGIKA PEMBAGIAN OTOMATIS (SPLIT) ---
+        // --- LOGIKA PEMBAGIAN OTOMATIS (DENGAN DETEKSI ITEM KEMBAR) ---
         function submitData() {
             const btn = document.getElementById('btn-submit');
             const periode = document.getElementById('input-periode').value;
             const nama = document.getElementById('input-nama').value;
             if(!periode || !nama) return showToast("Periode & Nama harus diisi!");
 
+            // 1. Ambil nilai mentah dari inputan
             const values = {};
             let hasVal = false;
             document.querySelectorAll('.money-input').forEach(inp => {
@@ -709,11 +808,54 @@ function renderRecapTable() {
             });
             if(!hasVal) return showToast("Isi minimal satu nominal!");
 
+            // 2. PROSES PEMBAGIAN OTOMATIS
+            let processedValues = JSON.parse(JSON.stringify(values));
+
+            // Hanya lakukan split jika user bukan Daerah
+            if (user.role !== 'Daerah') {
+                Object.keys(values).forEach(key => {
+                    const conf = configData.find(c => c.item_id === key);
+                    
+                    // Jika item ini ada dan di-set sebagai Split
+                    if (conf && conf.is_split) {
+                        const totalAmount = values[key];
+                        
+                        // Hitung persentase
+                        const pKel = (totalAmount * (conf.split_kel || 0)) / 100;
+                        const pDesa = (totalAmount * (conf.split_desa || 0)) / 100;
+                        const pDah = (totalAmount * (conf.split_daerah || 0)) / 100;
+
+                        // LOGIKA PENYALURAN BARU:
+                        // 1. Cari ID item kembar di E dan F (Suffix _e dan _f)
+                        // Contoh: Jika key='agafh', cari 'agafh_e' dan 'agafh_f'
+                        const targetSpecificE = configData.find(c => c.item_id === key + "_e");
+                        const targetSpecificF = configData.find(c => c.item_id === key + "_f");
+
+                        // 2. Item Asli (Kode C) diubah menjadi bagian Daerah
+                        processedValues[key] = pDah;
+
+                        // 3. Masukkan ke Kode F (Hak Kelompok)
+                        // Prioritas: Gunakan item khusus (_f), jika tidak ada gunakan item pertama di Kode F
+                        let destF = targetSpecificF || configData.find(c => c.cat_code === 'F');
+                        if (destF && pKel > 0) {
+                            processedValues[destF.item_id] = (processedValues[destF.item_id] || 0) + pKel;
+                        }
+
+                        // 4. Masukkan ke Kode E (Hak Desa)
+                        // Prioritas: Gunakan item khusus (_e), jika tidak ada gunakan item pertama di Kode E
+                        let destE = targetSpecificE || configData.find(c => c.cat_code === 'E');
+                        if (destE && pDesa > 0) {
+                            processedValues[destE.item_id] = (processedValues[destE.item_id] || 0) + pDesa;
+                        }
+                    }
+                });
+            }
+
             btn.disabled = true; btn.innerText = "Menyimpan...";
             const payload = {
                 action: isEditing ? 'update' : 'create',
                 id: editId, kelompok: user.kelompok, desa: user.desa, admin: user.nama_admin,
-                role: user.role, periode: periode, nama_warga: nama, values: values
+                role: user.role, periode: periode, nama_warga: nama, values: processedValues 
             };
 
             fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
@@ -728,7 +870,6 @@ function renderRecapTable() {
             })
             .catch(() => { showToast("Error Koneksi"); btn.disabled = false; });
         }
-
         function editData(id) {
             const t = allTransactions.find(x => x.id == id);
             if(!t) return;
@@ -747,7 +888,6 @@ function renderRecapTable() {
                     }
                 }
             } catch(e){}
-            // Update total live setelah data edit dimasukkan ke field
             updateLiveTotal();
             switchTab('input');
         }
@@ -758,7 +898,6 @@ function renderRecapTable() {
             document.getElementById('cancel-edit').style.display = 'none';
             document.getElementById('input-nama').value = '';
             document.querySelectorAll('.money-input').forEach(i => i.value = '');
-            // Reset live total ke 0
             updateLiveTotal();
         }
 
@@ -768,11 +907,9 @@ function renderRecapTable() {
             document.getElementById(`nav-${tabName}`).classList.add('active');
             document.getElementById(`view-${tabName}`).classList.add('active');
             
-            // Jika masuk tab config/targets, render tabelnya
             if(tabName === 'config' && user.role === 'Daerah') {
                 renderConfigTable();
             }
-            // TAMBAHAN LOGIKA TAB TARGETS
             if(tabName === 'targets' && user.role === 'Daerah') {
                 renderTargetsTable();
             }
@@ -783,7 +920,6 @@ function renderRecapTable() {
             let currentVal = parseRupiah(inp.value);
             let newVal = currentVal + amount;
             inp.value = formatRupiah(newVal);
-            // Update live total saat quick fill dipencet
             updateLiveTotal();
         }
 
@@ -795,11 +931,9 @@ function renderRecapTable() {
         
 function deleteData(id) {
     if(!confirm("Yakin ingin menghapus data ini?")) return;
-    
-    // Tampilkan indikator loading (opsional, tapi bagus UX)
     const btn = event.currentTarget;
     const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i>'; // Ikon loading
+    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i>'; 
     btn.disabled = true;
 
     fetch(SCRIPT_URL, {
@@ -810,9 +944,8 @@ function deleteData(id) {
     .then(res => {
         if(res.status === 'success') {
             showToast("Data dihapus");
-            fetchData(); // Refresh tabel
+            fetchData(); 
         } else {
-            // PERUBAAN: Menampilkan pesan error spesifik dari server
             showToast("Gagal: " + res.message);
         }
     })
@@ -821,11 +954,12 @@ function deleteData(id) {
         showToast("Error koneksi ke server");
     })
     .finally(() => {
-        // Kembalikan tombol ke kondisi semula
         btn.innerHTML = originalHTML;
         btn.disabled = false;
     });
 }
+
+// --- LOGIKA DOWNLOAD EXCEL ---
 async function downloadExcel() {
     const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
     const filterDesa = document.getElementById('filter-rekap-desa').value;
@@ -836,7 +970,6 @@ async function downloadExcel() {
     const dateObj = new Date(year, month - 1);
     const namaPeriode = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
     
-    // Persiapan Nama untuk Header
     let namaKelompok = (user.role === 'Kelompok' ? user.kelompok : ".........").toUpperCase();
     let namaDesaDisplay = (user.desa || ".........").toUpperCase();
     
@@ -844,47 +977,38 @@ async function downloadExcel() {
         if(filterDesa) {
             namaDesaDisplay = filterDesa.toUpperCase();
         } else {
-            namaDesaDisplay = ""; // Kosongkan jika daerah memilih "Semua Desa"
+            namaDesaDisplay = ""; 
         }
     }
 
-    // --- PERBAIKAN: LOGIKA FILTER KATEGORI BERDASARKAN ROLE ---
-    // Daerah: A, B, C, D, E
-    // Desa: A, B, C, D, E, F
-    // Kelompok: Semua (A, B, C, D, E, F, G, dst)
+    // --- KONFIGURASI KATEGORI ---
     let allowedCategories = [];
     if (user.role === 'Daerah') {
-        allowedCategories = ['A', 'B', 'C', 'D'];
+        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
     } else if (user.role === 'Desa') {
-        allowedCategories = ['A', 'B', 'C', 'D', 'E'];
+        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
+    } else if (user.role === 'Kelompok') {
+        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
     }
-    // Kelompok: biarkan array kosong agar semua kategori termasuk G muncul
-    // -------------------------------------------------------------
 
-    // --- LOGIKA PENENTUAN JUDUL (HEADER) ---
+    // --- LOGIKA JUDUL ---
     let reportTitle = "";
     let reportSubtitle = "";
     let reportPeriod = "PERIODE " + namaPeriode;
 
     if (user.role === 'Kelompok') {
-        // 1. Akun Kelompok
         reportTitle = "REKAPITULASI HIBAH BULANAN KELOMPOK KE DESA";
         reportSubtitle = `KELOMPOK ${namaKelompok} DESA ${namaDesaDisplay}`;
-    } 
-    else if (user.role === 'Desa') {
-        // 2. Akun Desa
+    } else if (user.role === 'Desa') {
         reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
         reportSubtitle = `DESA ${namaDesaDisplay}`;
-    } 
-    else if (user.role === 'Daerah') {
+    } else if (user.role === 'Daerah') {
         if (filterDesa) {
-            // 3. Akun Daerah memilih Desa Tertentu
             reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
             reportSubtitle = `DESA ${namaDesaDisplay}`;
         } else {
-            // 4. Akun Daerah memilih Semua Desa
             reportTitle = "REKAPITULASI HIBAH BULANAN DAERAH";
-            reportSubtitle = ""; // Kosong sesuai request
+            reportSubtitle = ""; 
         }
     }
 
@@ -899,18 +1023,14 @@ async function downloadExcel() {
     } else {
         targetKey = "";
     }
-
     const currentTargets = targetsData[targetKey] || {};
     
     // --- PENGHITUNGAN DATA ---
     const categorizedData = {};
     configData.forEach(conf => {
-        // --- CEK FILTER KATEGORI ---
-        // Jika ada kategori yang dibatasi DAN kategori item saat ini TIDAK ada di daftar yang diizinkan, maka SKIP (lewati)
         if (allowedCategories.length > 0 && !allowedCategories.includes(conf.cat_code.toUpperCase())) {
             return; 
         }
-        // ---------------------------
 
         if (!categorizedData[conf.cat_title]) categorizedData[conf.cat_title] = [];
         
@@ -935,6 +1055,7 @@ async function downloadExcel() {
         }, 0);
 
         categorizedData[conf.cat_title].push({
+            cat_code: conf.cat_code,
             label: conf.item_label,
             target: parseFloat(currentTargets[conf.item_id]) || 0,
             realisasi: realisasiBln
@@ -951,19 +1072,16 @@ async function downloadExcel() {
     worksheet.mergeCells('A2:E2');
     worksheet.mergeCells('A3:E3');
     
-    // Set Judul Baru
     const titleRow = worksheet.getCell('A1');
     titleRow.value = reportTitle;
     titleRow.font = { bold: true, size: 14 };
     titleRow.alignment = { horizontal: 'center' };
 
-    // Set Subtitle
     const subtitleRow = worksheet.getCell('A2');
     subtitleRow.value = reportSubtitle;
     subtitleRow.font = { bold: true, size: 11 };
     subtitleRow.alignment = { horizontal: 'center' };
 
-    // Set Periode
     const periodRow = worksheet.getCell('A3');
     periodRow.value = reportPeriod;
     periodRow.font = { bold: true, size: 11 };
@@ -981,23 +1099,35 @@ async function downloadExcel() {
     // Isi Data
     let counter = 1;
     let totalTarget = 0;
-    let totalRealisasi = 0;
+    let grandTotalRealisasi = 0;
+
+    // Hitung Hak Khusus untuk Footer
+    let totalHakKelompok = 0; // Kode F
+    let totalHakDesa = 0;     // Kode E
 
     for (const [catTitle, items] of Object.entries(categorizedData)) {
+        const cat = configData.find(c => c.cat_title === catTitle);
+        const catCode = cat ? cat.cat_code : '';
+
         const catRow = worksheet.addRow(['', catTitle.toUpperCase(), '', '', '']);
         catRow.getCell(2).font = { bold: true };
         
         items.forEach(item => {
             totalTarget += item.target;
-            totalRealisasi += item.realisasi;
+            grandTotalRealisasi += item.realisasi;
+
+            // Cek Kode untuk menghitung Hak
+            if (catCode === 'F') totalHakKelompok += item.realisasi;
+            if (catCode === 'E') totalHakDesa += item.realisasi;
+
             const row = worksheet.addRow([counter++, item.label, item.target, item.realisasi, ""]);
             row.getCell(3).numFmt = '#,##0';
             row.getCell(4).numFmt = '#,##0';
         });
     }
-
-    // Footer Total
-    const footerRow = worksheet.addRow(['', 'TOTAL KESELURUHAN', totalTarget, totalRealisasi, '']);
+    
+    // Footer Total (Grand Total)
+    const footerRow = worksheet.addRow(['', 'TOTAL KESELURUHAN', totalTarget, grandTotalRealisasi, '']);
     footerRow.eachCell((cell) => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
@@ -1005,13 +1135,39 @@ async function downloadExcel() {
     footerRow.getCell(3).numFmt = '#,##0';
     footerRow.getCell(4).numFmt = '#,##0';
 
+    // --- BARIS TOTAL YANG DISETOR ---
+    let totalYangDisetor = 0;
+    let labelSetoran = "";
+
+    if (user.role === 'Kelompok') {
+        totalYangDisetor = grandTotalRealisasi - totalHakKelompok;
+        labelSetoran = "TOTAL YANG DISETOR KE DESA";
+    } else if (user.role === 'Desa') {
+        totalYangDisetor = grandTotalRealisasi - totalHakDesa - totalHakKelompok;
+        labelSetoran = "TOTAL YANG DISETOR KE DAERAH";
+    }
+
+    if ((user.role === 'Kelompok' || user.role === 'Desa') && totalYangDisetor > 0) {
+        const setoranRow = worksheet.addRow(['', labelSetoran, '', totalYangDisetor, '']);
+        setoranRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+            cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        });
+        setoranRow.getCell(3).numFmt = '#,##0';
+        setoranRow.getCell(4).numFmt = '#,##0';
+        setoranRow.getCell(4).alignment = { horizontal: 'center' };
+    }
+
     // Styling Border
     worksheet.eachRow((row, rowNumber) => {
         if (rowNumber >= 5) {
             row.eachCell((cell) => {
-                cell.border = {
-                    top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
-                };
+                if (!cell.fill || cell.fill.fgColor.argb !== 'FF0F766E') {
+                   cell.border = {
+                        top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+                    };
+                }
                 if (cell.address.startsWith('A') || cell.address.startsWith('C') || cell.address.startsWith('D')) {
                     cell.alignment = { horizontal: 'center' };
                 }
@@ -1026,7 +1182,262 @@ async function downloadExcel() {
     worksheet.getColumn(4).width = 18;
     worksheet.getColumn(5).width = 20;
 
-    // Nama File Dinamis (Opsional: Supaya file lebih rapi saat didownload)
+    let fileName = "";
+    if (user.role === 'Kelompok') {
+        fileName = `Laporan_Kelompok_${namaKelompok}_${filterPeriodeRaw}.xlsx`;
+    } else if (user.role === 'Desa') {
+        fileName = `Laporan_Desa_${namaDesaDisplay}_${filterPeriodeRaw}.xlsx`;
+    } else if (user.role === 'Daerah') {
+        if (filterDesa) {
+            fileName = `Laporan_Desa_${filterDesa}_${filterPeriodeRaw}.xlsx`;
+        } else {
+            fileName = `Laporan_Daerah_Keseluruhan_${filterPeriodeRaw}.xlsx`;
+        }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+    showToast("File Excel berhasil didownload!");
+}// --- LOGIKA DOWNLOAD EXCEL (UPDATE 1) ---
+async function downloadExcel() {
+    const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
+    const filterDesa = document.getElementById('filter-rekap-desa').value;
+
+    if (!filterPeriodeRaw) return showToast("Pilih periode dulu!");
+
+    const [year, month] = filterPeriodeRaw.split('-');
+    const dateObj = new Date(year, month - 1);
+    const namaPeriode = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    
+    let namaKelompok = (user.role === 'Kelompok' ? user.kelompok : ".........").toUpperCase();
+    let namaDesaDisplay = (user.desa || ".........").toUpperCase();
+    
+    if (user.role === 'Daerah') {
+        if(filterDesa) {
+            namaDesaDisplay = filterDesa.toUpperCase();
+        } else {
+            namaDesaDisplay = ""; 
+        }
+    }
+
+    // --- KONFIGURASI KATEGORI (DIUPDATE SESUAI REQUEST) ---
+    let allowedCategories = [];
+    if (user.role === 'Daerah') {
+        // Daerah hanya melihat A, B, C, D (Sumber Utama)
+        // E dan F tidak ditampilkan karena ini laporan penerimaan daerah
+        allowedCategories = ['A', 'B', 'C', 'D'];
+    } else if (user.role === 'Desa') {
+        // Desa melihat A, B, C, D, E
+        // F (Hak Kelompok) tidak ditampilkan
+        allowedCategories = ['A', 'B', 'C', 'D', 'E'];
+    } else if (user.role === 'Kelompok') {
+        // Kelompok melihat semuanya A, B, C, D, E, F
+        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
+    }
+
+    // --- LOGIKA JUDUL ---
+    let reportTitle = "";
+    let reportSubtitle = "";
+    let reportPeriod = "PERIODE " + namaPeriode;
+
+    if (user.role === 'Kelompok') {
+        reportTitle = "REKAPITULASI HIBAH BULANAN KELOMPOK KE DESA";
+        reportSubtitle = `KELOMPOK ${namaKelompok} DESA ${namaDesaDisplay}`;
+    } else if (user.role === 'Desa') {
+        reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
+        reportSubtitle = `DESA ${namaDesaDisplay}`;
+    } else if (user.role === 'Daerah') {
+        if (filterDesa) {
+            reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
+            reportSubtitle = `DESA ${namaDesaDisplay}`;
+        } else {
+            reportTitle = "REKAPITULASI HIBAH BULANAN DAERAH";
+            reportSubtitle = ""; 
+        }
+    }
+
+    // --- LOGIKA TARGET ---
+    let targetKey;
+    if (user.role === 'Kelompok') {
+        targetKey = user.kelompok;
+    } else if (user.role === 'Desa') {
+        targetKey = user.desa;
+    } else if (user.role === 'Daerah') {
+        targetKey = filterDesa || "Daerah";
+    } else {
+        targetKey = "";
+    }
+    const currentTargets = targetsData[targetKey] || {};
+    
+    // --- PENGHITUNGAN DATA ---
+    const categorizedData = {};
+    configData.forEach(conf => {
+        // Filter baris berdasarkan allowedCategories
+        if (allowedCategories.length > 0 && !allowedCategories.includes(conf.cat_code.toUpperCase())) {
+            return; 
+        }
+
+        if (!categorizedData[conf.cat_title]) categorizedData[conf.cat_title] = [];
+        
+        const realisasiBln = allTransactions.filter(t => {
+            const tPeriode = String(t.periode).trim();
+            let matchRole = true;
+
+            if (user.role === 'Kelompok') {
+                matchRole = t.kelompok === user.kelompok;
+            } else if (user.role === 'Desa') {
+                matchRole = t.desa === user.desa;
+            } else if (user.role === 'Daerah') {
+                if (filterDesa) {
+                    matchRole = t.desa === filterDesa;
+                }
+            }
+
+            return tPeriode === filterPeriodeRaw && matchRole;
+        }).reduce((acc, t) => {
+            let vals = {}; try { vals = JSON.parse(t.values_json); } catch(e){}
+            return acc + (parseFloat(vals[conf.item_id]) || 0);
+        }, 0);
+
+        categorizedData[conf.cat_title].push({
+            cat_code: conf.cat_code,
+            label: conf.item_label,
+            target: parseFloat(currentTargets[conf.item_id]) || 0,
+            realisasi: realisasiBln
+        });
+    });
+
+    // --- MEMBUAT EXCEL ---
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Laporan', {
+        pageSetup: { paperSize: 9, orientation: 'portrait' }
+    });
+
+    worksheet.mergeCells('A1:E1');
+    worksheet.mergeCells('A2:E2');
+    worksheet.mergeCells('A3:E3');
+    
+    const titleRow = worksheet.getCell('A1');
+    titleRow.value = reportTitle;
+    titleRow.font = { bold: true, size: 14 };
+    titleRow.alignment = { horizontal: 'center' };
+
+    const subtitleRow = worksheet.getCell('A2');
+    subtitleRow.value = reportSubtitle;
+    subtitleRow.font = { bold: true, size: 11 };
+    subtitleRow.alignment = { horizontal: 'center' };
+
+    const periodRow = worksheet.getCell('A3');
+    periodRow.value = reportPeriod;
+    periodRow.font = { bold: true, size: 11 };
+    periodRow.alignment = { horizontal: 'center' };
+
+    // Header Tabel
+    const headerRow = worksheet.addRow(['NO', 'URAIAN', 'TARGET', 'REALISASI', 'KETERANGAN']);
+    headerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        cell.alignment = { horizontal: 'center' };
+    });
+
+    // Isi Data
+    let counter = 1;
+    let totalTarget = 0;
+    let grandTotalRealisasi = 0;
+
+    // Hitung Hak Khusus untuk Footer
+    // Karena F disembunyikan untuk Desa, totalHakKelompok akan tetap 0 untuk user Desa
+    let totalHakKelompok = 0; // Kode F
+    let totalHakDesa = 0;     // Kode E
+
+    for (const [catTitle, items] of Object.entries(categorizedData)) {
+        const cat = configData.find(c => c.cat_title === catTitle);
+        const catCode = cat ? cat.cat_code : '';
+
+        const catRow = worksheet.addRow(['', catTitle.toUpperCase(), '', '', '']);
+        catRow.getCell(2).font = { bold: true };
+        
+        items.forEach(item => {
+            totalTarget += item.target;
+            grandTotalRealisasi += item.realisasi;
+
+            // Cek Kode untuk menghitung Hak (Hanya berjalan jika kategori ada di allowedCategories)
+            if (catCode === 'F') totalHakKelompok += item.realisasi;
+            if (catCode === 'E') totalHakDesa += item.realisasi;
+
+            const row = worksheet.addRow([counter++, item.label, item.target, item.realisasi, ""]);
+            row.getCell(3).numFmt = '#,##0';
+            row.getCell(4).numFmt = '#,##0';
+        });
+    }
+    
+    // Footer Total (Grand Total)
+    const footerRow = worksheet.addRow(['', 'TOTAL KESELURUHAN', totalTarget, grandTotalRealisasi, '']);
+    footerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+    });
+    footerRow.getCell(3).numFmt = '#,##0';
+    footerRow.getCell(4).numFmt = '#,##0';
+
+    // --- BARIS TOTAL YANG DISETOR ---
+    let totalYangDisetor = 0;
+    let labelSetoran = "";
+
+    if (user.role === 'Kelompok') {
+        // Kelompok: Total - Hak Kelompok (F)
+        totalYangDisetor = grandTotalRealisasi - totalHakKelompok;
+        labelSetoran = "TOTAL YANG DISETOR KE DESA";
+    } else if (user.role === 'Desa') {
+        // Desa: Total - Hak Desa (E)
+        // Catatan: Karena F tidak ditampilkan (allowedCategories), maka totalHakKelompok = 0
+        totalYangDisetor = grandTotalRealisasi - totalHakDesa;
+        labelSetoran = "TOTAL YANG DISETOR KE DAERAH";
+    }
+    // Daerah tidak perlu baris "Disetor" karena Daerah adalah tujuan akhir
+
+    if ((user.role === 'Kelompok' || user.role === 'Desa') && totalYangDisetor > 0) {
+        const setoranRow = worksheet.addRow(['', labelSetoran, '', totalYangDisetor, '']);
+        setoranRow.eachCell((cell) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+            cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        });
+        setoranRow.getCell(3).numFmt = '#,##0';
+        setoranRow.getCell(4).numFmt = '#,##0';
+        setoranRow.getCell(4).alignment = { horizontal: 'center' };
+    }
+
+    // Styling Border
+    worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber >= 5) {
+            row.eachCell((cell) => {
+                if (!cell.fill || cell.fill.fgColor.argb !== 'FF0F766E') {
+                   cell.border = {
+                        top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+                    };
+                }
+                if (cell.address.startsWith('A') || cell.address.startsWith('C') || cell.address.startsWith('D')) {
+                    cell.alignment = { horizontal: 'center' };
+                }
+            });
+        }
+    });
+
+    // Lebar Kolom
+    worksheet.getColumn(1).width = 5;
+    worksheet.getColumn(2).width = 45;
+    worksheet.getColumn(3).width = 18;
+    worksheet.getColumn(4).width = 18;
+    worksheet.getColumn(5).width = 20;
+
     let fileName = "";
     if (user.role === 'Kelompok') {
         fileName = `Laporan_Kelompok_${namaKelompok}_${filterPeriodeRaw}.xlsx`;
@@ -1050,7 +1461,6 @@ async function downloadExcel() {
     window.URL.revokeObjectURL(url);
     showToast("File Excel berhasil didownload!");
 }
-
 // --- FITUR BARU: MASTER CONFIG CRUD ---
 
 function renderConfigTable() {
@@ -1079,7 +1489,6 @@ function openConfigModal(isEdit = false) {
     document.getElementById('modal-title-config').innerText = isEdit ? "Edit Item" : "Tambah Item";
     
     if(!isEdit) {
-        // Reset form
         document.getElementById('cfg-old-id').value = '';
         document.getElementById('cfg-item-id').value = '';
         document.getElementById('cfg-cat-code').value = '';
@@ -1087,6 +1496,8 @@ function openConfigModal(isEdit = false) {
         document.getElementById('cfg-item-label').value = '';
         document.getElementById('cfg-tipe').value = 'Bulanan';
         document.getElementById('cfg-groups').value = '';
+        document.getElementById('cfg-is-split').checked = false;
+        document.getElementById('split-inputs').style.display = 'none';
     }
 }
 
@@ -1106,6 +1517,12 @@ function editConfig(id) {
     document.getElementById('cfg-item-label').value = item.item_label;
     document.getElementById('cfg-tipe').value = item.tipe;
     document.getElementById('cfg-groups').value = item.allowed_groups || "";
+
+    document.getElementById('cfg-is-split').checked = item.is_split || false;
+    document.getElementById('split-inputs').style.display = item.is_split ? 'grid' : 'none';
+    document.getElementById('cfg-split-kel').value = item.split_kel || 0;
+    document.getElementById('cfg-split-desa').value = item.split_desa || 0;
+    document.getElementById('cfg-split-dah').value = item.split_daerah || 0;
 }
 
 function deleteConfig(id) {
@@ -1119,7 +1536,7 @@ function deleteConfig(id) {
     .then(res => {
         if(res.status === 'success') {
             showToast(res.message);
-            fetchConfig(); // Reload data
+            fetchConfig(); 
             renderConfigTable();
         } else {
             showToast("Gagal: " + res.message);
@@ -1136,7 +1553,16 @@ function saveConfig() {
     const tipe = document.getElementById('cfg-tipe').value;
     const groups = document.getElementById('cfg-groups').value.trim();
 
+    const isSplit = document.getElementById('cfg-is-split').checked;
+    const splitKel = parseFloat(document.getElementById('cfg-split-kel').value) || 0;
+    const splitDesa = parseFloat(document.getElementById('cfg-split-desa').value) || 0;
+    const splitDah = parseFloat(document.getElementById('cfg-split-dah').value) || 0;
+
     if(!itemId || !catCode || !catTitle || !itemLabel) return showToast("Lengkapi data wajib!");
+
+    if (isSplit && (splitKel + splitDesa + splitDah !== 100)) {
+        return showToast("Total persentase split harus 100%!");
+    }
 
     const action = oldId ? 'update_config' : 'create_config';
     
@@ -1147,7 +1573,11 @@ function saveConfig() {
         cat_title: catTitle,
         item_label: itemLabel,
         tipe: tipe,
-        allowed_groups: groups || "ALL"
+        allowed_groups: groups || "ALL",
+        is_split: isSplit,
+        split_kel: splitKel,
+        split_desa: splitDesa,
+        split_daerah: splitDah
     };
 
     fetch(SCRIPT_URL, {
@@ -1159,7 +1589,7 @@ function saveConfig() {
         if(res.status === 'success') {
             showToast(res.message);
             closeConfigModal();
-            fetchConfig(); // Reload config agar form input berubah
+            fetchConfig(); 
             renderConfigTable();
         } else {
             showToast("Error: " + res.message);
@@ -1180,19 +1610,14 @@ function renderTargetsTable() {
         return;
     }
 
-    // 1. Buat Header
     let headerHTML = '<tr><th style="position:sticky; left:0; background:#f8fafc; z-index:10;">Identitas (Kelompok/Desa)</th>';
-    
-    // Ambil daftar Item ID dari configData untuk urutan kolom
     let itemsList = configData.map(c => c.item_id);
     if (itemsList.length === 0) {
-        // Fallback jika config belum load
         const firstKey = Object.keys(targetsData)[0];
         itemsList = Object.keys(targetsData[firstKey] || {});
     }
 
     itemsList.forEach(itemId => {
-        // Cari label item dari config
         const itemConf = configData.find(c => c.item_id === itemId);
         const label = itemConf ? itemConf.item_label : itemId;
         headerHTML += `<th style="min-width:120px; text-align:center;">${label}</th>`;
@@ -1200,18 +1625,14 @@ function renderTargetsTable() {
     headerHTML += '</tr>';
     thead.innerHTML = headerHTML;
 
-    // 2. Buat Baris Data
     Object.keys(targetsData).forEach(identity => {
         const tr = document.createElement('tr');
-        // Kolom Nama (Fixed)
         let rowHTML = `<td style="font-weight:bold; position:sticky; left:0; background:white; z-index:5; border-right:2px solid #ddd;">${identity}</td>`;
         
         const dataRow = targetsData[identity];
 
         itemsList.forEach(itemId => {
             const val = dataRow[itemId] || 0;
-            // Input number
-            // onblur = ketika user klik keluar input, maka simpan
             rowHTML += `
                 <td style="text-align:center;">
                     <input type="number" 
@@ -1231,10 +1652,7 @@ function renderTargetsTable() {
 
 function updateTarget(inputEl, identity, itemId) {
     const newValue = inputEl.value;
-    
-    // Tampilkan loading sederhana pada input
-    const originalBg = inputEl.style.background;
-    inputEl.style.background = '#fef9c3'; // Kuning loading
+    inputEl.style.background = '#fef9c3'; 
 
     fetch(SCRIPT_URL, {
         method: 'POST',
@@ -1248,18 +1666,14 @@ function updateTarget(inputEl, identity, itemId) {
     .then(r => r.json())
     .then(res => {
         if(res.status === 'success') {
-            // Sukses
-            inputEl.style.background = '#dcfce7'; // Hijau sukses
+            inputEl.style.background = '#dcfce7'; 
             setTimeout(() => inputEl.style.background = 'white', 1000);
-            
-            // Update lokal agar tidak perlu reload halaman
             if(targetsData[identity]) {
                 targetsData[identity][itemId] = parseFloat(newValue) || 0;
             }
         } else {
-            // Error
             alert("Gagal menyimpan: " + res.message);
-            inputEl.style.background = '#fee2e2'; // Merah error
+            inputEl.style.background = '#fee2e2'; 
         }
     })
     .catch(e => {
@@ -1268,6 +1682,10 @@ function updateTarget(inputEl, identity, itemId) {
     });
 }
 
+document.getElementById('cfg-is-split').addEventListener('change', function() {
+    const div = document.getElementById('split-inputs');
+    div.style.display = this.checked ? 'grid' : 'none';
+});
     </script>
 </body>
 </html>
