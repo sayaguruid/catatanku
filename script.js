@@ -1,6 +1,6 @@
 // --- KONFIGURASI ---
 // GANTI INI DENGAN URL WEB APP ANDA (HASIL DEPLOY TERBARU)
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx...GANTI_DENGAN_URL_ANDA/exec'; 
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyo65StO07OygmbXGwFzoE-FVCGB9u-VfC9S9IL1uv78XxeeZpRMrLhdMlOLJqXiY2H/exec; 
 
 let authToken = null;
 let user = null;
