@@ -3,19 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catatan KU - Secure System</title>
-    
-    <!-- External Libraries -->
+    <title>Catatan KU - Sistem Aman</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-
-    <!-- Local CSS -->
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- LOGIN VIEW -->
     <div id="login-view">
         <div class="login-box">
             <div style="font-size: 3rem; margin-bottom: 1rem;"><i class="ph ph-lock-key"></i></div>
@@ -27,7 +23,6 @@
         </div>
     </div>
 
-    <!-- APP VIEW -->
     <div id="app-view">
         <header>
             <div class="logo"><i class="ph ph-safe-2"></i>CATATANKU</div>
@@ -66,12 +61,10 @@
                 </div>
                 <div id="dynamic-tabs" class="cat-tabs"></div>
                 <div id="dynamic-items"></div>
-                
                 <div class="live-total-box">
                     <div class="live-total-label">Total Input:</div>
                     <div class="live-total-value" id="live-total">Rp 0</div>
                 </div>
-
                 <div style="margin-top: 2rem;">
                     <button id="btn-submit" class="btn btn-primary" style="width:100%" onclick="submitData()">
                         <i class="ph ph-floppy-disk"></i> Simpan Data
@@ -172,7 +165,7 @@
                                 <th>Kategori</th>
                                 <th>Label Item</th>
                                 <th>Tipe</th>
-                                <th>Akses</th>
+                                <th>Akses (Kelompok)</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
@@ -186,7 +179,7 @@
             <div class="form-card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                     <h3>Input Target Anggaran</h3>
-                    <button class="btn btn-sm" onclick="fetchData()"><i class="ph ph-arrows-clockwise"></i> Reload Data</button>
+                    <button class="btn btn-sm" onclick="fetchData()"><i class="ph ph-arrows-clockwise"></i> Reload</button>
                 </div>
                 <div class="table-card">
                     <table id="table-targets">
@@ -194,9 +187,7 @@
                         <tbody id="tbody-targets"></tbody>
                     </table>
                 </div>
-                <small style="color:var(--text-light); display:block; margin-top:1rem;">
-                    *Klik pada kotak angka untuk mengedit.
-                </small>
+                <small style="color:var(--text-light); display:block; margin-top:1rem;">*Klik pada kotak angka untuk mengedit.</small>
             </div>
         </div>
     </div>
@@ -208,75 +199,34 @@
         <div class="form-card modal-content">
             <h3 id="modal-title-config" style="margin-top:0">Tambah Item</h3>
             <input type="hidden" id="cfg-old-id">
+            <div style="margin-bottom:1rem;"><label class="label-sm">ID Item</label><input type="text" id="cfg-item-id" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Kode Kategori</label><input type="text" id="cfg-cat-code" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Judul Kategori</label><input type="text" id="cfg-cat-title" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Label Item</label><input type="text" id="cfg-item-label" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Tipe</label>
+                <select id="cfg-tipe" class="form-control"><option value="Bulanan">Bulanan</option><option value="Tahunan">Tahunan</option></select>
+            </div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Hak Akses Kelompok</label><input type="text" id="cfg-groups" class="form-control"></div>
             
-            <div style="margin-bottom:1rem;">
-                <label style="font-size:0.8rem; font-weight:700;">ID Item (Unik)</label>
-                <input type="text" id="cfg-item-id" class="form-control" placeholder="cth: fr, ckm, baru_01">
-            </div>
-            
-            <div style="margin-bottom:1rem;">
-                <label style="font-size:0.8rem; font-weight:700;">Kode Kategori</label>
-                <input type="text" id="cfg-cat-code" class="form-control" placeholder="cth: A, B, C">
-            </div>
-
-            <div style="margin-bottom:1rem;">
-                <label style="font-size:0.8rem; font-weight:700;">Judul Kategori</label>
-                <input type="text" id="cfg-cat-title" class="form-control" placeholder="cth: SODAKOH">
-            </div>
-
-            <div style="margin-bottom:1rem;">
-                <label style="font-size:0.8rem; font-weight:700;">Label Item</label>
-                <input type="text" id="cfg-item-label" class="form-control" placeholder="cth: FR 10%">
-            </div>
-
-            <div style="margin-bottom:1rem;">
-                <label style="font-size:0.8rem; font-weight:700;">Tipe</label>
-                <select id="cfg-tipe" class="form-control">
-                    <option value="Bulanan">Bulanan</option>
-                    <option value="Tahunan">Tahunan</option>
-                </select>
-            </div>
-
-            <div style="margin-bottom:1.5rem;">
-                <label style="font-size:0.8rem; font-weight:700;">Hak Akses Kelompok</label>
-                <input type="text" id="cfg-groups" class="form-control" placeholder="Kosongkan untuk SEMUA">
-            </div>
-
             <div style="margin-bottom:1rem; padding:1rem; background:#f0fdf4; border:1px dashed #22c55e; border-radius:8px;">
-                <label style="font-size:0.8rem; font-weight:700; color:#15803d; display:block; margin-bottom:0.5rem;">
-                    <i class="ph ph-arrows-split"></i> FITUR PEMBAGIAN OTOMATIS (SPLIT)
-                </label>
-                
-                <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
-                    <input type="checkbox" id="cfg-is-split" style="width:20px; height:20px;">
-                    <label for="cfg-is-split" style="font-size:0.9rem;">Aktifkan Pembagian Otomatis?</label>
+                <label style="font-weight:700; color:#15803d;">FITUR PEMBAGIAN OTOMATIS (SPLIT)</label>
+                <div style="margin-top:0.5rem;">
+                    <input type="checkbox" id="cfg-is-split"> <label for="cfg-is-split">Aktifkan Split?</label>
                 </div>
-
-                <div id="split-inputs" style="display:none; grid-template-columns: repeat(3, 1fr); gap:0.5rem;">
-                    <div>
-                        <label style="font-size:0.7rem;">% Kelompok (Ke F)</label>
-                        <input type="number" id="cfg-split-kel" class="form-control" placeholder="0" value="0">
-                    </div>
-                    <div>
-                        <label style="font-size:0.7rem;">% Desa (Ke E)</label>
-                        <input type="number" id="cfg-split-desa" class="form-control" placeholder="0" value="0">
-                    </div>
-                    <div>
-                        <label style="font-size:0.7rem;">% Daerah (Tetap C)</label>
-                        <input type="number" id="cfg-split-dah" class="form-control" placeholder="0" value="0">
-                    </div>
+                <div id="split-inputs" style="display:none; grid-template-columns: repeat(3, 1fr); gap:0.5rem; margin-top:0.5rem;">
+                    <input type="number" id="cfg-split-kel" class="form-control" placeholder="% Kelompok" value="0">
+                    <input type="number" id="cfg-split-desa" class="form-control" placeholder="% Desa" value="0">
+                    <input type="number" id="cfg-split-dah" class="form-control" placeholder="% Daerah" value="0">
                 </div>
-                <small style="color:#166534; display:block; margin-top:0.3rem;">*Total persentase harus 100%.</small>
             </div>
-            
-            <div style="display:flex; gap:1rem;">
+
+            <div style="display:flex; gap:1rem; margin-top:1.5rem;">
                 <button class="btn btn-primary" style="flex:1" onclick="saveConfig()">Simpan</button>
                 <button class="btn" style="flex:1; background:#e2e8f0;" onclick="closeConfigModal()">Batal</button>
             </div>
         </div>
     </div>
 
-    <!-- Local JS -->
     <script src="script.js"></script>
 </body>
 </html>
