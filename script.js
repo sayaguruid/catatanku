@@ -1,4 +1,4 @@
-// Ganti URL ini dengan URL Web App Google Script Anda (Deploy sebagai 'Me' atau 'Anyone')
+// Ganti URL ini dengan URL Web App Google Script Anda
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyo65StO07OygmbXGwFzoE-FVCGB9u-VfC9S9IL1uv78XxeeZpRMrLhdMlOLJqXiY2H/exec'; 
 
 let user = null;
@@ -41,9 +41,7 @@ function updateLiveTotal() {
 }
 
 function securePost(payload) {
-    // Selalu sertakan token jika user sudah login
     if (authToken) payload.token = authToken;
-    
     return fetch(SCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify(payload)
@@ -68,7 +66,7 @@ function doLogin() {
         if (res.status === 'success') {
             user = res.user;
             authToken = res.token;
-            localStorage.setItem('app_token', authToken); // Opsional: simpan token
+            localStorage.setItem('app_token', authToken); 
             initApp();
         } else {
             msg.innerText = res.message;
@@ -103,6 +101,8 @@ function fetchConfig() {
             tipe: r.tipe, allowed_groups: r.allowed_groups || "ALL",
             is_split: r.is_split || false, split_kel: r.split_kel || 0, split_desa: r.split_desa || 0, split_daerah: r.split_daerah || 0
         }));
+        
+        // Pastikan targetsData adalah objek yang valid
         targetsData = res.targets || {}; 
         buildForm();
         fetchData();
@@ -118,7 +118,7 @@ function fetchData() {
             allTransactions = res.data;
             updateDesaFilterOptions();
             renderDataTable();
-            renderRecapTable();
+            renderRecapTable(); // Panggil render rekap saat data fetch
         }
     });
 }
@@ -200,7 +200,6 @@ function renderDataTable() {
         let match = true;
         if (user.role === 'Kelompok') match = t.kelompok === user.kelompok;
         else if (user.role === 'Desa') match = t.desa === user.desa;
-        
         if (match && filterPeriode) match = (t.periode && String(t.periode).trim() === filterPeriode);
         if (match && user.role === 'Daerah' && filterDesa) match = (t.desa && String(t.desa).trim() === filterDesa);
         return match;
@@ -213,35 +212,133 @@ function renderDataTable() {
         grandTotal += total;
 
         const displayDate = t.timestamp ? String(t.timestamp).split(' ')[0] : '-';
-
         const tr = document.createElement('tr');
-        
-        // SECURITY: Gunakan textContent untuk data user guna mencegah XSS
-        tr.innerHTML = `<td>${displayDate}</td><td>${t.periode}</td>`; // Tanggal & Periode aman
-        
-        const nameTd = document.createElement('td');
-        nameTd.textContent = t.nama_warga; // Aman
-        tr.appendChild(nameTd);
-        
-        const desaTd = document.createElement('td');
-        desaTd.textContent = t.desa || '-';
-        tr.appendChild(desaTd);
-
-        const totalTd = document.createElement('td');
-        totalTd.style.cssText = "font-weight:bold; color:var(--accent)";
-        totalTd.textContent = "Rp " + total.toLocaleString('id-ID');
-        tr.appendChild(totalTd);
-
-        const actionTd = document.createElement('td');
-        actionTd.innerHTML = `
-            <button class="btn btn-sm" onclick="editData('${t.id}')"><i class="ph ph-pencil-simple"></i></button>
-            <button class="btn btn-sm btn-danger" onclick="deleteData('${t.id}')"><i class="ph ph-trash"></i></button>
+        tr.innerHTML = `
+            <td>${displayDate}</td>
+            <td>${t.periode}</td>
+            <td>${t.nama_warga}</td>
+            <td>${t.desa || '-'}</td>
+            <td style="font-weight:bold; color:var(--accent)">Rp ${total.toLocaleString('id-ID')}</td>
+            <td>
+                <button class="btn btn-sm" onclick="editData('${t.id}')"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteData('${t.id}')"><i class="ph ph-trash"></i></button>
+            </td>
         `;
-        tr.appendChild(actionTd);
-
         tbody.appendChild(tr);
     });
-    document.getElementById('grand-total-data').textContent = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+    document.getElementById('grand-total-data').innerText = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+}
+
+// --- FIX: RENDER REKAP TABLE (HTML) ---
+function renderRecapTable() {
+    const tbody = document.getElementById('table-body-rekap');
+    const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
+    const filterDesa = document.getElementById('filter-rekap-desa').value; 
+    tbody.innerHTML = '';
+    
+    // Jika periode belum dipilih, tampilkan pesan
+    if (!filterPeriodeRaw) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-light);">Silakan pilih periode terlebih dahulu.</td></tr>';
+        document.getElementById('grand-total-rekap').innerText = "Rp 0";
+        return;
+    }
+
+    const [selectedYear, selectedMonthStr] = filterPeriodeRaw.split('-');
+    const selectedMonth = parseInt(selectedMonthStr);
+    
+    // Tentukan identitas target berdasarkan user
+    let targetIdentity;
+    if (user.role === 'Kelompok') {
+        targetIdentity = user.kelompok;
+    } else if (user.role === 'Desa') {
+        targetIdentity = user.desa;
+    } else if (user.role === 'Daerah') {
+        targetIdentity = filterDesa || "Daerah"; 
+    } else {
+        targetIdentity = "";
+    }
+
+    const currentTargets = targetsData[targetIdentity] || {}; 
+    const realisasiBlnIni = {}; 
+    const akumulasiYTD = {};           
+    let grandTotalBlnIni = 0;
+
+    // Hitung Realisasi
+    allTransactions.forEach(t => {
+        const tPeriode = String(t.periode).trim(); 
+        const [tYear, tMonthStr] = tPeriode.split('-');
+        const tMonth = parseInt(tMonthStr);
+
+        let matchUser = true;
+        if (user.role === 'Kelompok') matchUser = t.kelompok === user.kelompok;
+        else if (user.role === 'Desa') matchUser = t.desa === user.desa;
+        if (matchUser && user.role === 'Daerah' && filterDesa) matchUser = t.desa === filterDesa;
+
+        if (matchUser && tYear === selectedYear) {
+            let valObj = {};
+            try { valObj = JSON.parse(t.values_json); } catch(e){}
+            for (let [key, val] of Object.entries(valObj)) {
+                const nominal = parseFloat(val) || 0;
+                // Akumulasi YTD
+                akumulasiYTD[key] = (akumulasiYTD[key] || 0) + nominal;
+                // Realisasi Bulan Ini
+                if (tMonth === selectedMonth) {
+                    realisasiBlnIni[key] = (realisasiBlnIni[key] || 0) + nominal;
+                    grandTotalBlnIni += nominal;
+                }
+            }
+        }
+    });
+
+    // Render Baris
+    configData.forEach(conf => {
+        const id = conf.item_id;
+        const bln = realisasiBlnIni[id] || 0;
+        const ytd = akumulasiYTD[id] || 0;
+        const tipe = (conf.tipe || "Tahunan").trim();
+        const targetVal = parseFloat(currentTargets[id]) || 0;
+        
+        let persen = 0;
+        let labelTarget = tipe === "Bulanan" ? "Target/Bln" : "Target/Thn";
+
+        if (tipe === "Bulanan") {
+            persen = targetVal > 0 ? Math.round((bln / targetVal) * 100) : 0;
+        } else {
+            persen = targetVal > 0 ? Math.round((ytd / targetVal) * 100) : 0;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div style="font-weight:600; font-size:0.85rem;">${conf.item_label}</div>
+                <div style="font-size:0.6rem; color:#fff; background:${tipe === 'Bulanan' ? '#8b5cf6' : '#3b82f6'}; padding:1px 6px; border-radius:10px; display:inline-block; margin-top:2px;">
+                    ${tipe}
+                </div>
+            </td>
+            <td style="text-align:right; font-weight:700; color:var(--accent);">
+                Rp ${bln.toLocaleString('id-ID')}
+            </td>
+            <td style="text-align:right; font-size:0.8rem; color:var(--text-light);">
+                ${tipe === 'Bulanan' ? '-' : 'Rp ' + ytd.toLocaleString('id-ID')}
+            </td>
+            <td style="text-align:right;">
+                <div style="font-size:0.8rem; font-weight:600;">Rp ${targetVal.toLocaleString('id-ID')}</div>
+                <div style="font-size:0.55rem; color:var(--text-light); text-transform:uppercase;">${labelTarget}</div>
+            </td>
+            <td>
+                <div style="font-size:0.7rem; margin-bottom:3px; display:flex; justify-content:space-between;">
+                    <span style="font-weight:bold">${persen}%</span>
+                    <span style="font-size:0.6rem; opacity:0.7">${tipe === 'Tahunan' ? 'YTD' : 'REAL'}</span>
+                </div>
+                <div class="progress-container" style="background:#e2e8f0; height:6px; border-radius:10px; overflow:hidden;">
+                    <div class="progress-bar" style="width: ${persen > 100 ? 100 : persen}%; height:100%; background: ${persen >= 100 ? '#22c55e' : (tipe === 'Bulanan' ? '#a78bfa' : '#3b82f6')}; transition:0.3s;"></div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('grand-total-rekap').innerText = `Rp ${grandTotalBlnIni.toLocaleString('id-ID')}`;
 }
 
 // --- ACTION HANDLERS ---
@@ -490,7 +587,87 @@ async function downloadExcel() {
     showToast("File Excel berhasil didownload!");
 }
 
-// --- HELPERS ---
+// --- TARGETS VIEW FIX ---
+function renderTargetsTable() {
+    const thead = document.getElementById('thead-targets');
+    const tbody = document.getElementById('tbody-targets');
+    thead.innerHTML = ''; 
+    tbody.innerHTML = '';
+
+    if (!targetsData || Object.keys(targetsData).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem;">Belum ada data Target. Silakan tambahkan identity (Kelompok/Desa) terlebih dahulu di sheet atau melalui input data pertama kali.</td></tr>';
+        return;
+    }
+
+    // Ambil daftar ID item dari Config untuk dijadikan kolom
+    const itemsList = configData.map(c => c.item_id);
+
+    // 1. Buat Header
+    let headerHTML = '<tr><th style="position:sticky; left:0; background:#f8fafc; z-index:10;">Identitas (Kelompok/Desa)</th>';
+    itemsList.forEach(itemId => {
+        const itemConf = configData.find(c => c.item_id === itemId);
+        const label = itemConf ? itemConf.item_label : itemId;
+        headerHTML += `<th style="min-width:120px; text-align:center; font-size:0.75rem;">${label}</th>`;
+    });
+    headerHTML += '</tr>';
+    thead.innerHTML = headerHTML;
+
+    // 2. Buat Body (Baris per Identity)
+    Object.keys(targetsData).forEach(identity => {
+        const tr = document.createElement('tr');
+        let rowHTML = `<td style="font-weight:bold; position:sticky; left:0; background:white; z-index:5; border-right:2px solid #ddd;">${identity}</td>`;
+        
+        const dataRow = targetsData[identity]; // Ini object: { "fr": 100000, "ckm": 50000 }
+
+        itemsList.forEach(itemId => {
+            const val = dataRow[itemId] || 0; // Ambil value, default 0 jika belum ada
+            rowHTML += `
+                <td style="text-align:center;">
+                    <input type="number" 
+                           class="target-input" 
+                           value="${val}" 
+                           style="width:100px; text-align:center; padding:5px; border:1px solid #ddd; border-radius:4px;"
+                           onblur="updateTarget(this, '${identity}', '${itemId}')"
+                           onchange="this.style.background='#dcfce7'; setTimeout(()=>this.style.background='white', 500)">
+                </td>
+            `;
+        });
+
+        tr.innerHTML = rowHTML;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateTarget(inputEl, identity, itemId) {
+    const newValue = inputEl.value;
+    inputEl.style.background = '#fef9c3'; // Kuning saat proses
+
+    securePost({
+        action: 'update_target',
+        identity: identity,
+        item_id: itemId,
+        value: newValue
+    })
+    .then(res => {
+        if(res.status === 'success') {
+            inputEl.style.background = '#dcfce7'; // Hijau sukses
+            setTimeout(() => inputEl.style.background = 'white', 1000);
+            // Update local data
+            if(targetsData[identity]) {
+                targetsData[identity][itemId] = parseFloat(newValue) || 0;
+            }
+        } else {
+            alert("Gagal menyimpan: " + res.message);
+            inputEl.style.background = '#fee2e2'; // Merah gagal
+        }
+    })
+    .catch(e => {
+        console.error(e);
+        inputEl.style.background = '#fee2e2';
+    });
+}
+
+// --- HELPERS LAINNYA ---
 function switchTab(tabName) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
@@ -553,7 +730,7 @@ function editData(id) {
     switchTab('input');
 }
 
-// Fitur Config & Target (Singkat untuk fungsi CRUD dasar)
+// Config & Modal Helpers
 function renderConfigTable() {
     const tbody = document.getElementById('table-body-config');
     tbody.innerHTML = '';
@@ -575,7 +752,6 @@ function renderConfigTable() {
 }
 
 function saveConfig() {
-    // (Implementasi singkat sesuai logic HTML asli)
     const payload = {
         action: document.getElementById('cfg-old-id').value ? 'update_config' : 'create_config',
         item_id: document.getElementById('cfg-item-id').value.trim(),
@@ -602,48 +778,5 @@ function deleteConfig(id) {
     if(!confirm("Hapus item ini?")) return;
     securePost({ action: 'delete_config', item_id: id }).then(res => {
         if(res.status === 'success') { fetchConfig(); renderConfigTable(); }
-    });
-}
-
-function updateTarget(inputEl, identity, itemId) {
-    securePost({
-        action: 'update_target',
-        identity: identity, item_id: itemId, value: inputEl.value
-    }).then(res => {
-        if(res.status === 'success') {
-            inputEl.style.background = '#dcfce7'; 
-            setTimeout(() => inputEl.style.background = 'white', 1000);
-            if(targetsData[identity]) targetsData[identity][itemId] = parseFloat(inputEl.value) || 0;
-        } else { alert(res.message); inputEl.style.background = '#fee2e2'; }
-    });
-}
-
-function renderTargetsTable() {
-    const thead = document.getElementById('thead-targets');
-    const tbody = document.getElementById('tbody-targets');
-    thead.innerHTML = ''; tbody.innerHTML = '';
-    
-    if (!targetsData || Object.keys(targetsData).length === 0) return tbody.innerHTML = '<tr><td colspan="10">Belum ada data</td></tr>';
-
-    // Header
-    let itemsList = configData.map(c => c.item_id);
-    let headerHTML = '<tr><th>Identitas</th>';
-    itemsList.forEach(id => {
-        const conf = configData.find(c => c.item_id === id);
-        headerHTML += `<th>${conf ? conf.item_label : id}</th>`;
-    });
-    headerHTML += '</tr>'; thead.innerHTML = headerHTML;
-
-    // Body
-    Object.keys(targetsData).forEach(identity => {
-        const tr = document.createElement('tr');
-        let html = `<td style="font-weight:bold;">${identity}</td>`;
-        itemsList.forEach(id => {
-            const val = targetsData[identity][id] || 0;
-            html += `<td><input type="number" class="target-input" value="${val}" 
-                style="width:100px; text-align:center;" 
-                onblur="updateTarget(this, '${identity}', '${id}')"></td>`;
-        });
-        tr.innerHTML = html; tbody.appendChild(tr);
     });
 }
