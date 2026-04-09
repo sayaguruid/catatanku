@@ -1,5 +1,4 @@
 // --- KONFIGURASI ---
-// GANTI DENGAN URL DEPLOYMENT WEB APP ANDA
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyo65StO07OygmbXGwFzoE-FVCGB9u-VfC9S9IL1uv78XxeeZpRMrLhdMlOLJqXiY2H/exec'; 
 
 let user = null;
@@ -9,19 +8,12 @@ let isEditing = false;
 let editId = null;
 let targetsData = {}; 
 
-// --- SECURITY: SANITASI HTML ---
-// Mencegah XSS (Cross-Site Scripting) saat menampilkan data dari database
+// --- SECURITY & UTILITIES ---
 function escapeHtml(text) {
     if (!text) return text;
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
-// --- FUNGSI UTILITY ---
 function parseRupiah(str) {
     if (!str) return 0;
     let cleaned = String(str).replace(/\./g, '').replace(/,/g, '.');
@@ -37,7 +29,6 @@ function formatInputOnKey(el) {
     let originalLength = el.value.length;
     let value = el.value.replace(/[^0-9]/g, '');
     el.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    
     let newLength = el.value.length;
     if (value !== "") {
         el.selectionStart = el.selectionEnd = cursorPosition + (newLength - originalLength);
@@ -47,28 +38,22 @@ function formatInputOnKey(el) {
 
 function updateLiveTotal() {
     let total = 0;
-    document.querySelectorAll('.money-input').forEach(inp => {
-        total += parseRupiah(inp.value);
-    });
+    document.querySelectorAll('.money-input').forEach(inp => total += parseRupiah(inp.value));
     document.getElementById('live-total').innerText = "Rp " + formatRupiah(total);
 }
 
-// --- AUTH & INIT ---
+// --- AUTH ---
 function doLogin() {
     const pass = document.getElementById('login-pass').value.trim();
     const msg = document.getElementById('login-msg');
     if (!pass) return msg.innerText = "Masukkan password!";
     msg.innerText = "Memproses...";
     
-    fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'login', password: pass })
-    })
+    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'login', password: pass }) })
     .then(r => r.json())
     .then(res => {
         if (res.status === 'success') {
             user = res.user;
-            // Simpan token di localStorage (opsional, bisa juga memory only)
             localStorage.setItem('app_token', res.token);
             initApp();
         } else {
@@ -81,8 +66,6 @@ function doLogin() {
 function initApp() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
-    
-    // Gunakan escapeHtml untuk mencegah XSS di nama user
     document.getElementById('u-name').innerText = escapeHtml(user.nama_admin);
     document.getElementById('u-role').innerText = `${user.role} | ${escapeHtml(user.kelompok || user.desa || '')}`;
     
@@ -92,16 +75,31 @@ function initApp() {
         document.getElementById('nav-config').style.display = 'block';
         document.getElementById('nav-targets').style.display = 'block';
     }
-
     fetchConfig();
+}
+
+// --- DATA FETCHING ---
+function fetchConfig() {
+    const token = localStorage.getItem('app_token');
+    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'get_config', token: token }) })
+    .then(r => r.json())
+    .then(res => {
+        configData = res.config.map(r => ({
+            cat_code: r.cat_code, cat_title: r.cat_title, item_id: r.item_id, 
+            item_label: r.item_label, tipe: r.tipe, allowed_groups: r.allowed_groups || "ALL",
+            is_split: r.is_split || false, split_kel: r.split_kel || 0, 
+            split_desa: r.split_desa || 0, split_daerah: r.split_daerah || 0
+        }));
+        targetsData = res.targets || {}; 
+        buildForm();
+        fetchData();
+        if(user.role === 'Daerah') renderConfigTable();
+    });
 }
 
 function fetchData() {
     const token = localStorage.getItem('app_token');
-    fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'fetch_data', token: token }) 
-    })
+    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'fetch_data', token: token }) })
     .then(r => r.json())
     .then(data => {
         allTransactions = data;
@@ -111,62 +109,18 @@ function fetchData() {
     });
 }
 
-function fetchConfig() {
-    const token = localStorage.getItem('app_token');
-    fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'get_config', token: token }) 
-    })
-    .then(r => r.json())
-    .then(res => {
-        configData = res.config.map(r => ({
-            cat_code: r.cat_code, 
-            cat_title: r.cat_title, 
-            item_id: r.item_id, 
-            item_label: r.item_label,
-            tipe: r.tipe,
-            allowed_groups: r.allowed_groups || "ALL",
-            is_split: r.is_split || false,
-            split_kel: r.split_kel || 0,
-            split_desa: r.split_desa || 0,
-            split_daerah: r.split_daerah || 0
-        }));
-        targetsData = res.targets || {}; 
-        buildForm();
-        fetchData();
-        
-        if(user.role === 'Daerah') {
-            renderConfigTable();
-        }
-    });
-}
-
 // --- FORM BUILDING ---
 function buildForm() {
     const tabsContainer = document.getElementById('dynamic-tabs');
     const itemsContainer = document.getElementById('dynamic-items');
     tabsContainer.innerHTML = ''; itemsContainer.innerHTML = '';
-
     const categories = {};
     
-    // Loop config data
     configData.forEach(item => {
-        // --- SECURITY FILTER: CEK allowed_groups ---
-        // Jika allowed_groups bukan "ALL", cek apakah user kelompok cocok
         if (item.allowed_groups && item.allowed_groups !== "ALL") {
-            // Kita asumsikan user.kelompok harus ada di dalam string allowed_groups
-            // Contoh: allowed_groups = "A 1", user.kelompok = "A 1" -> Boleh
-            // Jika user.kelompok tidak sama, maka SKIP (jangan ditampilkan)
-            if (!user.kelompok || item.allowed_groups.indexOf(user.kelompok) === -1) {
-                return; // Lewati item ini
-            }
+            if (!user.kelompok || item.allowed_groups.indexOf(user.kelompok) === -1) return;
         }
-
-        // --- END FILTER ---
-
-        if (!categories[item.cat_code]) {
-            categories[item.cat_code] = { title: item.cat_title, items: [] };
-        }
+        if (!categories[item.cat_code]) categories[item.cat_code] = { title: item.cat_title, items: [] };
         categories[item.cat_code].items.push(item);
     });
 
@@ -182,53 +136,34 @@ function buildForm() {
         const pane = document.createElement('div');
         pane.id = `pane-${code}`;
         pane.className = `cat-pane ${index === 0 ? 'active' : ''}`;
-        
         cat.items.forEach(item => {
             const row = document.createElement('div');
             row.className = 'item-row';
+            row.innerHTML = `<label style="font-size:0.85rem">${escapeHtml(item.item_label)}</label>`;
             
-            const labelDiv = document.createElement('label');
-            labelDiv.style.cssText = "font-size:0.85rem";
-            labelDiv.innerText = item.item_label;
-            row.appendChild(labelDiv);
-
             const currencyDiv = document.createElement('div');
             currencyDiv.className = 'currency-wrap';
             currencyDiv.innerHTML = '<span>Rp</span>';
-            
             const inp = document.createElement('input');
-            inp.type = 'text';
-            inp.inputMode = 'numeric';
-            inp.className = 'form-control money-input';
-            inp.dataset.id = item.item_id; // ID sekarang benar karena perbaikan backend
-            inp.placeholder = '0';
-            inp.oninput = function() { formatInputOnKey(this) };
-            
-            currencyDiv.appendChild(inp);
-            row.appendChild(currencyDiv);
+            inp.type = 'text'; inp.inputMode = 'numeric'; inp.className = 'form-control money-input';
+            inp.dataset.id = item.item_id; inp.placeholder = '0'; inp.oninput = function() { formatInputOnKey(this) };
+            currencyDiv.appendChild(inp); row.appendChild(currencyDiv);
 
             const btnAdd = document.createElement('button');
-            btnAdd.className = 'btn btn-sm';
-            btnAdd.style.background = '#e2e8f0';
-            btnAdd.innerText = '+50rb';
-            btnAdd.onclick = function() { quickFill(this, 50000) };
-            row.appendChild(btnAdd);
+            btnAdd.className = 'btn btn-sm'; btnAdd.style.background = '#e2e8f0'; btnAdd.innerText = '+50rb';
+            btnAdd.onclick = function() { quickFill(this, 50000) }; row.appendChild(btnAdd);
 
             pane.appendChild(row);
-            
-            // Split Preview Logic (Opsional, tetapkan jika diperlukan)
             if (item.is_split) {
                 const previewDiv = document.createElement('div');
                 previewDiv.className = 'split-preview';
                 previewDiv.style.cssText = "font-size:0.7rem; color:#64748b; margin-top:4px; padding:4px; background:#f1f5f9; border-radius:4px;";
                 previewDiv.innerHTML = '<i class="ph ph-calculator"></i> <b>Otomatis:</b> <span class="val-kel">0</span> (Ke F) | <span class="val-desa">0</span> (Ke E) | <span class="val-dah">0</span> (Tetap C)';
-                
                 inp.addEventListener('input', () => {
                     const total = parseRupiah(inp.value);
                     const pKel = (total * (item.split_kel || 0)) / 100;
                     const pDesa = (total * (item.split_desa || 0)) / 100;
                     const pDah = (total * (item.split_daerah || 0)) / 100;
-                    
                     previewDiv.querySelector('.val-kel').innerText = formatRupiah(pKel);
                     previewDiv.querySelector('.val-desa').innerText = formatRupiah(pDesa);
                     previewDiv.querySelector('.val-dah').innerText = formatRupiah(pDah);
@@ -238,13 +173,10 @@ function buildForm() {
         });
         itemsContainer.appendChild(pane);
     });
-    
-    // Set default periode jika kosong
-    if(document.getElementById('input-periode').value === "") {
-        document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
-    }
+    if(document.getElementById('input-periode').value === "") document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
     updateLiveTotal();
 }
+
 function switchCategory(code) {
     document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.cat-pane').forEach(p => p.classList.remove('active'));
@@ -252,6 +184,7 @@ function switchCategory(code) {
     document.getElementById(`pane-${code}`).classList.add('active');
 }
 
+// --- RENDER TABLES ---
 function updateDesaFilterOptions() {
     if(user.role !== 'Daerah') return;
     const desas = [...new Set(allTransactions.map(t => t.desa))].filter(Boolean);
@@ -259,69 +192,41 @@ function updateDesaFilterOptions() {
     selects.forEach(sel => {
         sel.innerHTML = '<option value="">Semua Desa</option>';
         desas.forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d;
-            opt.innerText = escapeHtml(d); // Sanitasi
-            sel.appendChild(opt);
+            const opt = document.createElement('option'); opt.value = d; opt.innerText = escapeHtml(d); sel.appendChild(opt);
         });
     });
 }
 
-// --- RENDER TABLES ---
 function renderDataTable() {
     const tbody = document.getElementById('table-body-data');
     const filterPeriode = document.getElementById('filter-data-periode').value;
     const filterDesa = document.getElementById('filter-data-desa').value;
-    
-    tbody.innerHTML = '';
-    let grandTotal = 0;
+    tbody.innerHTML = ''; let grandTotal = 0;
 
     const filtered = allTransactions.filter(t => {
         let match = true;
         if (user.role === 'Kelompok') match = t.kelompok === user.kelompok;
         else if (user.role === 'Desa') match = t.desa === user.desa;
-        
         if (match && filterPeriode) match = (t.periode && String(t.periode).trim() === filterPeriode);
         if (match && user.role === 'Daerah' && filterDesa) match = (t.desa && String(t.desa).trim() === filterDesa);
         return match;
     });
 
     filtered.reverse().forEach(t => {
-        let valObj = {};
-        try { valObj = JSON.parse(t.values_json); } catch(e){}
+        let valObj = {}; try { valObj = JSON.parse(t.values_json); } catch(e){}
         const total = Object.values(valObj).reduce((a,b)=>a+(parseFloat(b)||0),0);
         grandTotal += total;
-
-        const displayDate = t.timestamp ? String(t.timestamp).split(' ')[0] : '-';
-
         const tr = document.createElement('tr');
-        
-        // Membuat baris tabel dengan aman (menggunakan elemen DOM, bukan innerHTML untuk data)
-        tr.innerHTML = `
-            <td>${displayDate}</td>
+        tr.innerHTML = `<td>${t.timestamp ? String(t.timestamp).split(' ')[0] : '-'}</td>
             <td>${escapeHtml(t.periode)}</td>
             <td>${escapeHtml(t.nama_warga)}</td>
             <td>${escapeHtml(t.desa || '-')}</td>
             <td style="font-weight:bold; color:var(--accent)">Rp ${total.toLocaleString('id-ID')}</td>
-            <td></td> 
-        `; // Kolom aksi ditambah terpisah untuk menghindari event listener issue di innerHTML
-
-        // Tambah tombol aksi secara manual untuk keamanan
+            <td></td>`;
         const tdActions = tr.querySelector('td:last-child');
-        
-        const btnEdit = document.createElement('button');
-        btnEdit.className = 'btn btn-sm';
-        btnEdit.innerHTML = '<i class="ph ph-pencil-simple"></i>';
-        btnEdit.onclick = () => editData(t.id);
-        
-        const btnDel = document.createElement('button');
-        btnDel.className = 'btn btn-sm btn-danger';
-        btnDel.innerHTML = '<i class="ph ph-trash"></i>';
-        btnDel.onclick = () => deleteData(t.id);
-
-        tdActions.appendChild(btnEdit);
-        tdActions.appendChild(btnDel);
-
+        const btnEdit = document.createElement('button'); btnEdit.className = 'btn btn-sm'; btnEdit.innerHTML = '<i class="ph ph-pencil-simple"></i>'; btnEdit.onclick = () => editData(t.id);
+        const btnDel = document.createElement('button'); btnDel.className = 'btn btn-sm btn-danger'; btnDel.innerHTML = '<i class="ph ph-trash"></i>'; btnDel.onclick = () => deleteData(t.id);
+        tdActions.appendChild(btnEdit); tdActions.appendChild(btnDel);
         tbody.appendChild(tr);
     });
     document.getElementById('grand-total-data').innerText = `Rp ${grandTotal.toLocaleString('id-ID')}`;
@@ -331,45 +236,30 @@ function renderRecapTable() {
     const tbody = document.getElementById('table-body-rekap');
     const filterPeriode = document.getElementById('filter-rekap-periode').value;
     const filterDesa = document.getElementById('filter-rekap-desa').value; 
-    tbody.innerHTML = '';
-    
-    if (!filterPeriode) return;
+    tbody.innerHTML = ''; if (!filterPeriode) return;
 
     const [selectedYear, selectedMonthStr] = filterPeriode.split('-');
     const selectedMonth = parseInt(selectedMonthStr);
-    
-    let targetKey;
-    if (user.role === 'Kelompok') targetKey = user.kelompok;
-    else if (user.role === 'Desa') targetKey = user.desa;
-    else if (user.role === 'Daerah') targetKey = filterDesa || "Daerah"; 
-    else targetKey = "";
-
+    let targetKey = user.role === 'Kelompok' ? user.kelompok : (user.role === 'Desa' ? user.desa : (filterDesa || "Daerah"));
     const currentTargets = targetsData[targetKey] || {}; 
     
-    const realisasiBlnIni = {}; 
-    const akumulasiYTD = {};           
-    let grandTotalBlnIni = 0;
+    const realisasiBlnIni = {}; const akumulasiYTD = {}; let grandTotalBlnIni = 0;
 
     allTransactions.forEach(t => {
         const tPeriode = String(t.periode).trim(); 
         const [tYear, tMonthStr] = tPeriode.split('-');
         const tMonth = parseInt(tMonthStr);
-
         let matchUser = true;
         if (user.role === 'Kelompok') matchUser = t.kelompok === user.kelompok;
         else if (user.role === 'Desa') matchUser = t.desa === user.desa;
-        if (matchUser && user.role === 'Daerah' && filterDesa) matchUser = t.desa === filterDesa;
+        else if (user.role === 'Daerah' && filterDesa) matchUser = t.desa === filterDesa;
 
         if (matchUser && tYear === selectedYear) {
-            let valObj = {};
-            try { valObj = JSON.parse(t.values_json); } catch(e){}
+            let valObj = {}; try { valObj = JSON.parse(t.values_json); } catch(e){}
             for (let [key, val] of Object.entries(valObj)) {
                 const nominal = parseFloat(val) || 0;
                 if (tMonth <= selectedMonth) akumulasiYTD[key] = (akumulasiYTD[key] || 0) + nominal;
-                if (tMonth === selectedMonth) {
-                    realisasiBlnIni[key] = (realisasiBlnIni[key] || 0) + nominal;
-                    grandTotalBlnIni += nominal;
-                }
+                if (tMonth === selectedMonth) { realisasiBlnIni[key] = (realisasiBlnIni[key] || 0) + nominal; grandTotalBlnIni += nominal; }
             }
         }
     });
@@ -380,30 +270,16 @@ function renderRecapTable() {
         const ytd = akumulasiYTD[id] || 0;
         const tipe = (conf.tipe || "Tahunan").trim();
         const targetVal = parseFloat(currentTargets[id]) || 0;
-        
-        let persen = 0;
+        let persen = tipe === "Bulanan" ? (targetVal > 0 ? Math.round((bln / targetVal) * 100) : 0) : (targetVal > 0 ? Math.round((ytd / targetVal) * 100) : 0);
         let labelTarget = tipe === "Bulanan" ? "Target/Bln" : "Target/Thn";
 
-        if (tipe === "Bulanan") {
-            persen = targetVal > 0 ? Math.round((bln / targetVal) * 100) : 0;
-        } else {
-            persen = targetVal > 0 ? Math.round((ytd / targetVal) * 100) : 0;
-        }
-
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>
+        tr.innerHTML = `<td>
                 <div style="font-weight:600; font-size:0.85rem;">${escapeHtml(conf.item_label)}</div>
-                <div style="font-size:0.6rem; color:#fff; background:${tipe === 'Bulanan' ? '#8b5cf6' : '#3b82f6'}; padding:1px 6px; border-radius:10px; display:inline-block; margin-top:2px;">
-                    ${escapeHtml(tipe)}
-                </div>
+                <div style="font-size:0.6rem; color:#fff; background:${tipe === 'Bulanan' ? '#8b5cf6' : '#3b82f6'}; padding:1px 6px; border-radius:10px; display:inline-block; margin-top:2px;">${escapeHtml(tipe)}</div>
             </td>
-            <td style="text-align:right; font-weight:700; color:var(--accent);">
-                Rp ${bln.toLocaleString('id-ID')}
-            </td>
-            <td style="text-align:right; font-size:0.8rem; color:var(--text-light);">
-                ${tipe === 'Bulanan' ? '-' : 'Rp ' + ytd.toLocaleString('id-ID')}
-            </td>
+            <td style="text-align:right; font-weight:700; color:var(--accent);">Rp ${bln.toLocaleString('id-ID')}</td>
+            <td style="text-align:right; font-size:0.8rem; color:var(--text-light);">${tipe === 'Bulanan' ? '-' : 'Rp ' + ytd.toLocaleString('id-ID')}</td>
             <td style="text-align:right;">
                 <div style="font-size:0.8rem; font-weight:600;">Rp ${targetVal.toLocaleString('id-ID')}</div>
                 <div style="font-size:0.55rem; color:var(--text-light); text-transform:uppercase;">${escapeHtml(labelTarget)}</div>
@@ -416,23 +292,20 @@ function renderRecapTable() {
                 <div class="progress-container" style="background:#e2e8f0; height:6px; border-radius:10px; overflow:hidden;">
                     <div class="progress-bar" style="width: ${persen > 100 ? 100 : persen}%; height:100%; background: ${persen >= 100 ? '#22c55e' : (tipe === 'Bulanan' ? '#a78bfa' : '#3b82f6')}; transition:0.3s;"></div>
                 </div>
-            </td>
-        `;
+            </td>`;
         tbody.appendChild(tr);
     });
-
     document.getElementById('grand-total-rekap').innerText = `Rp ${grandTotalBlnIni.toLocaleString('id-ID')}`;
 }
 
-// --- SUBMIT DATA & SPLIT LOGIC ---
+// --- ACTIONS ---
 function submitData() {
     const btn = document.getElementById('btn-submit');
     const periode = document.getElementById('input-periode').value;
     const nama = document.getElementById('input-nama').value;
     if(!periode || !nama) return showToast("Periode & Nama harus diisi!");
 
-    const values = {};
-    let hasVal = false;
+    const values = {}; let hasVal = false;
     document.querySelectorAll('.money-input').forEach(inp => {
         const v = parseRupiah(inp.value); 
         if(v > 0) { values[inp.dataset.id] = v; hasVal = true; }
@@ -440,7 +313,6 @@ function submitData() {
     if(!hasVal) return showToast("Isi minimal satu nominal!");
 
     let processedValues = JSON.parse(JSON.stringify(values));
-
     if (user.role !== 'Daerah') {
         Object.keys(values).forEach(key => {
             const conf = configData.find(c => c.item_id === key);
@@ -449,21 +321,13 @@ function submitData() {
                 const pKel = (totalAmount * (conf.split_kel || 0)) / 100;
                 const pDesa = (totalAmount * (conf.split_desa || 0)) / 100;
                 const pDah = (totalAmount * (conf.split_daerah || 0)) / 100;
-
                 const targetSpecificE = configData.find(c => c.item_id === key + "_e");
                 const targetSpecificF = configData.find(c => c.item_id === key + "_f");
-
                 processedValues[key] = pDah;
-
                 let destF = targetSpecificF || configData.find(c => c.cat_code === 'F');
-                if (destF && pKel > 0) {
-                    processedValues[destF.item_id] = (processedValues[destF.item_id] || 0) + pKel;
-                }
-
+                if (destF && pKel > 0) processedValues[destF.item_id] = (processedValues[destF.item_id] || 0) + pKel;
                 let destE = targetSpecificE || configData.find(c => c.cat_code === 'E');
-                if (destE && pDesa > 0) {
-                    processedValues[destE.item_id] = (processedValues[destE.item_id] || 0) + pDesa;
-                }
+                if (destE && pDesa > 0) processedValues[destE.item_id] = (processedValues[destE.item_id] || 0) + pDesa;
             }
         });
     }
@@ -471,7 +335,7 @@ function submitData() {
     btn.disabled = true; btn.innerText = "Menyimpan...";
     const payload = {
         action: isEditing ? 'update' : 'create',
-        token: localStorage.getItem('app_token'), // Kirim token
+        token: localStorage.getItem('app_token'),
         id: editId, kelompok: user.kelompok, desa: user.desa, admin: user.nama_admin,
         role: user.role, periode: periode, nama_warga: nama, values: processedValues 
     };
@@ -480,12 +344,9 @@ function submitData() {
     .then(r => r.json())
     .then(res => {
         if(res.status === 'success') {
-            showToast("Berhasil!");
-            resetForm(); fetchData();
+            showToast("Berhasil!"); resetForm(); fetchData();
             if(isEditing) switchTab('data');
-        } else {
-            showToast("Error: " + res.message);
-        }
+        } else { showToast("Error: " + res.message); }
         btn.disabled = false; btn.innerHTML = `<i class="ph ph-floppy-disk"></i> Simpan Data`;
     })
     .catch(() => { showToast("Error Koneksi"); btn.disabled = false; });
@@ -520,21 +381,31 @@ function resetForm() {
     updateLiveTotal();
 }
 
+function deleteData(id) {
+    if(!confirm("Yakin ingin menghapus data ini?")) return;
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete', token: localStorage.getItem('app_token'), id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if(res.status === 'success') { showToast("Data dihapus"); fetchData(); } 
+        else { showToast("Gagal: " + res.message); }
+    });
+}
+
 function switchTab(tabName) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
     document.getElementById(`nav-${tabName}`).classList.add('active');
     document.getElementById(`view-${tabName}`).classList.add('active');
-    
     if(tabName === 'config' && user.role === 'Daerah') renderConfigTable();
     if(tabName === 'targets' && user.role === 'Daerah') renderTargetsTable();
 }
 
 function quickFill(btn, amount) {
     const inp = btn.parentElement.querySelector('input');
-    let currentVal = parseRupiah(inp.value);
-    let newVal = currentVal + amount;
-    inp.value = formatRupiah(newVal);
+    inp.value = formatRupiah(parseRupiah(inp.value) + amount);
     updateLiveTotal();
 }
 
@@ -544,41 +415,18 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function deleteData(id) {
-    if(!confirm("Yakin ingin menghapus data ini?")) return;
-    
-    fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'delete', token: localStorage.getItem('app_token'), id: id })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if(res.status === 'success') {
-            showToast("Data dihapus");
-            fetchData(); 
-        } else {
-            showToast("Gagal: " + res.message);
-        }
-    });
-}
-
-// --- CONFIG & TARGETS ---
+// --- CONFIG & TARGETS UI ---
 function renderConfigTable() {
-    const tbody = document.getElementById('table-body-config');
-    tbody.innerHTML = '';
+    const tbody = document.getElementById('table-body-config'); tbody.innerHTML = '';
     configData.forEach(item => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><b>${escapeHtml(item.item_id)}</b></td>
-            <td>${escapeHtml(item.cat_title)}</td>
-            <td>${escapeHtml(item.item_label)}</td>
-            <td><span style="font-size:0.75rem; background:${item.tipe==='Bulanan'?'#a78bfa':'#3b82f6'}; color:white; padding:2px 6px; border-radius:4px;">${escapeHtml(item.tipe)}</span></td>
-            <td>${escapeHtml(item.allowed_groups || "ALL")}</td>
-            <td>
-                <button class="btn btn-sm" onclick="editConfig('${escapeHtml(item.item_id)}')"><i class="ph ph-pencil-simple"></i></button>
-                <button class="btn btn-sm btn-danger" onclick="deleteConfig('${escapeHtml(item.item_id)}')"><i class="ph ph-trash"></i></button>
-            </td>
-        `;
+        tr.innerHTML = `<td><b>${escapeHtml(item.item_id)}</b></td><td>${escapeHtml(item.cat_title)}</td><td>${escapeHtml(item.item_label)}</td>
+        <td><span style="font-size:0.75rem; background:${item.tipe==='Bulanan'?'#a78bfa':'#3b82f6'}; color:white; padding:2px 6px; border-radius:4px;">${escapeHtml(item.tipe)}</span></td>
+        <td>${escapeHtml(item.allowed_groups || "ALL")}</td>
+        <td>
+            <button class="btn btn-sm" onclick="editConfig('${escapeHtml(item.item_id)}')"><i class="ph ph-pencil-simple"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="deleteConfig('${escapeHtml(item.item_id)}')"><i class="ph ph-trash"></i></button>
+        </td>`;
         tbody.appendChild(tr);
     });
 }
@@ -703,13 +551,12 @@ function renderTargetsTable() {
         const dataRow = targetsData[identity];
         itemsList.forEach(itemId => {
             const val = dataRow[itemId] || 0;
-            rowHTML += `
-                <td style="text-align:center;">
-                    <input type="number" class="target-input" value="${val}" 
-                           style="width:100px; text-align:center; padding:5px; border:1px solid #ddd; border-radius:4px;"
-                           onblur="updateTarget(this, '${escapeHtml(identity)}', '${escapeHtml(itemId)}')"
-                           onchange="this.style.background='#dcfce7'; setTimeout(()=>this.style.background='white', 500)">
-                </td>`;
+            rowHTML += `<td style="text-align:center;">
+                <input type="number" class="target-input" value="${val}" 
+                       style="width:100px; text-align:center; padding:5px; border:1px solid #ddd; border-radius:4px;"
+                       onblur="updateTarget(this, '${escapeHtml(identity)}', '${escapeHtml(itemId)}')"
+                       onchange="this.style.background='#dcfce7'; setTimeout(()=>this.style.background='white', 500)">
+            </td>`;
         });
         tr.innerHTML = rowHTML;
         tbody.appendChild(tr);
@@ -743,11 +590,10 @@ document.getElementById('cfg-is-split').addEventListener('change', function() {
     document.getElementById('split-inputs').style.display = this.checked ? 'grid' : 'none';
 });
 
-// --- EXCEL DOWNLOAD (Client Side Logic - Safe) ---
+// --- EXCEL DOWNLOAD (FINAL VERSION) ---
 async function downloadExcel() {
     const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
     const filterDesa = document.getElementById('filter-rekap-desa').value;
-
     if (!filterPeriodeRaw) return showToast("Pilih periode dulu!");
 
     const [year, month] = filterPeriodeRaw.split('-');
@@ -758,28 +604,16 @@ async function downloadExcel() {
     let namaDesaDisplay = (user.desa || ".........").toUpperCase();
     
     if (user.role === 'Daerah') {
-        if(filterDesa) {
-            namaDesaDisplay = filterDesa.toUpperCase();
-        } else {
-            namaDesaDisplay = ""; 
-        }
+        if(filterDesa) namaDesaDisplay = filterDesa.toUpperCase();
+        else namaDesaDisplay = ""; 
     }
 
-    // --- KONFIGURASI KATEGORI ---
     let allowedCategories = [];
-    if (user.role === 'Daerah') {
-        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
-    } else if (user.role === 'Desa') {
-        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
-    } else if (user.role === 'Kelompok') {
-        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
-    }
+    if (user.role === 'Daerah') allowedCategories = ['A', 'B', 'C', 'D']; 
+    else if (user.role === 'Desa') allowedCategories = ['A', 'B', 'C', 'D', 'E'];
+    else if (user.role === 'Kelompok') allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-    // --- LOGIKA JUDUL ---
-    let reportTitle = "";
-    let reportSubtitle = "";
-    let reportPeriod = "PERIODE " + namaPeriode;
-
+    let reportTitle = "", reportSubtitle = "", reportPeriod = "PERIODE " + namaPeriode;
     if (user.role === 'Kelompok') {
         reportTitle = "REKAPITULASI HIBAH BULANAN KELOMPOK KE DESA";
         reportSubtitle = `KELOMPOK ${namaKelompok} DESA ${namaDesaDisplay}`;
@@ -796,161 +630,84 @@ async function downloadExcel() {
         }
     }
 
-    // --- LOGIKA TARGET ---
-    let targetKey;
-    if (user.role === 'Kelompok') {
-        targetKey = user.kelompok;
-    } else if (user.role === 'Desa') {
-        targetKey = user.desa;
-    } else if (user.role === 'Daerah') {
-        targetKey = filterDesa || "Daerah";
-    } else {
-        targetKey = "";
-    }
+    let targetKey = user.role === 'Kelompok' ? user.kelompok : (user.role === 'Desa' ? user.desa : (filterDesa || "Daerah"));
     const currentTargets = targetsData[targetKey] || {};
     
-    // --- PENGHITUNGAN DATA ---
     const categorizedData = {};
     configData.forEach(conf => {
-        if (allowedCategories.length > 0 && !allowedCategories.includes(conf.cat_code.toUpperCase())) {
-            return; 
-        }
-
+        if (allowedCategories.length > 0 && !allowedCategories.includes(conf.cat_code.toUpperCase())) return; 
         if (!categorizedData[conf.cat_title]) categorizedData[conf.cat_title] = [];
-        
         const realisasiBln = allTransactions.filter(t => {
             const tPeriode = String(t.periode).trim();
             let matchRole = true;
-
-            if (user.role === 'Kelompok') {
-                matchRole = t.kelompok === user.kelompok;
-            } else if (user.role === 'Desa') {
-                matchRole = t.desa === user.desa;
-            } else if (user.role === 'Daerah') {
-                if (filterDesa) {
-                    matchRole = t.desa === filterDesa;
-                }
-            }
-
+            if (user.role === 'Kelompok') matchRole = t.kelompok === user.kelompok;
+            else if (user.role === 'Desa') matchRole = t.desa === user.desa;
+            else if (user.role === 'Daerah' && filterDesa) matchRole = t.desa === filterDesa;
             return tPeriode === filterPeriodeRaw && matchRole;
         }).reduce((acc, t) => {
             let vals = {}; try { vals = JSON.parse(t.values_json); } catch(e){}
             return acc + (parseFloat(vals[conf.item_id]) || 0);
         }, 0);
-
         categorizedData[conf.cat_title].push({
-            cat_code: conf.cat_code,
-            label: conf.item_label,
-            target: parseFloat(currentTargets[conf.item_id]) || 0,
-            realisasi: realisasiBln
+            cat_code: conf.cat_code, label: conf.item_label,
+            target: parseFloat(currentTargets[conf.item_id]) || 0, realisasi: realisasiBln
         });
     });
 
-    // --- MEMBUAT EXCEL ---
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Laporan', {
-        pageSetup: { paperSize: 9, orientation: 'portrait' }
-    });
+    const worksheet = workbook.addWorksheet('Laporan', { pageSetup: { paperSize: 9, orientation: 'portrait' } });
+    worksheet.mergeCells('A1:E1'); worksheet.mergeCells('A2:E2'); worksheet.mergeCells('A3:E3');
+    worksheet.getCell('A1').value = reportTitle; worksheet.getCell('A1').font = { bold: true, size: 14 }; worksheet.getCell('A1').alignment = { horizontal: 'center' };
+    worksheet.getCell('A2').value = reportSubtitle; worksheet.getCell('A2').font = { bold: true, size: 11 }; worksheet.getCell('A2').alignment = { horizontal: 'center' };
+    worksheet.getCell('A3').value = reportPeriod; worksheet.getCell('A3').font = { bold: true, size: 11 }; worksheet.getCell('A3').alignment = { horizontal: 'center' };
 
-    worksheet.mergeCells('A1:E1');
-    worksheet.mergeCells('A2:E2');
-    worksheet.mergeCells('A3:E3');
-    
-    const titleRow = worksheet.getCell('A1');
-    titleRow.value = reportTitle;
-    titleRow.font = { bold: true, size: 14 };
-    titleRow.alignment = { horizontal: 'center' };
-
-    const subtitleRow = worksheet.getCell('A2');
-    subtitleRow.value = reportSubtitle;
-    subtitleRow.font = { bold: true, size: 11 };
-    subtitleRow.alignment = { horizontal: 'center' };
-
-    const periodRow = worksheet.getCell('A3');
-    periodRow.value = reportPeriod;
-    periodRow.font = { bold: true, size: 11 };
-    periodRow.alignment = { horizontal: 'center' };
-
-    // Header Tabel
     const headerRow = worksheet.addRow(['NO', 'URAIAN', 'TARGET', 'REALISASI', 'KETERANGAN']);
     headerRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
-        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        cell.alignment = { horizontal: 'center' };
+        cell.font = { bold: true }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} }; cell.alignment = { horizontal: 'center' };
     });
 
-    // Isi Data
-    let counter = 1;
-    let totalTarget = 0;
-    let grandTotalRealisasi = 0;
-
-    // Hitung Hak Khusus untuk Footer
-    let totalHakKelompok = 0; // Kode F
-    let totalHakDesa = 0;     // Kode E
+    let counter = 1, totalTarget = 0, grandTotalRealisasi = 0, totalHakKelompok = 0, totalHakDesa = 0;
 
     for (const [catTitle, items] of Object.entries(categorizedData)) {
         const cat = configData.find(c => c.cat_title === catTitle);
         const catCode = cat ? cat.cat_code : '';
-
         const catRow = worksheet.addRow(['', catTitle.toUpperCase(), '', '', '']);
         catRow.getCell(2).font = { bold: true };
-        
         items.forEach(item => {
-            totalTarget += item.target;
-            grandTotalRealisasi += item.realisasi;
-
-            // Cek Kode untuk menghitung Hak
+            totalTarget += item.target; grandTotalRealisasi += item.realisasi;
             if (catCode === 'F') totalHakKelompok += item.realisasi;
             if (catCode === 'E') totalHakDesa += item.realisasi;
-
             const row = worksheet.addRow([counter++, item.label, item.target, item.realisasi, ""]);
-            row.getCell(3).numFmt = '#,##0';
-            row.getCell(4).numFmt = '#,##0';
+            row.getCell(3).numFmt = '#,##0'; row.getCell(4).numFmt = '#,##0';
         });
     }
     
-    // Footer Total (Grand Total)
     const footerRow = worksheet.addRow(['', 'TOTAL KESELURUHAN', totalTarget, grandTotalRealisasi, '']);
-    footerRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
-    });
-    footerRow.getCell(3).numFmt = '#,##0';
-    footerRow.getCell(4).numFmt = '#,##0';
+    footerRow.eachCell((cell) => { cell.font = { bold: true }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; });
+    footerRow.getCell(3).numFmt = '#,##0'; footerRow.getCell(4).numFmt = '#,##0';
 
-    // --- BARIS TOTAL YANG DISETOR ---
-    let totalYangDisetor = 0;
-    let labelSetoran = "";
-
+    let totalYangDisetor = 0, labelSetoran = "";
     if (user.role === 'Kelompok') {
-        totalYangDisetor = grandTotalRealisasi - totalHakKelompok;
-        labelSetoran = "TOTAL YANG DISETOR KE DESA";
+        totalYangDisetor = grandTotalRealisasi - totalHakKelompok; labelSetoran = "TOTAL YANG DISETOR KE DESA";
     } else if (user.role === 'Desa') {
-        totalYangDisetor = grandTotalRealisasi - totalHakDesa - totalHakKelompok;
-        labelSetoran = "TOTAL YANG DISETOR KE DAERAH";
+        totalYangDisetor = grandTotalRealisasi - totalHakDesa; labelSetoran = "TOTAL YANG DISETOR KE DAERAH";
     }
 
     if ((user.role === 'Kelompok' || user.role === 'Desa') && totalYangDisetor > 0) {
         const setoranRow = worksheet.addRow(['', labelSetoran, '', totalYangDisetor, '']);
         setoranRow.eachCell((cell) => {
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
             cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
         });
-        setoranRow.getCell(3).numFmt = '#,##0';
-        setoranRow.getCell(4).numFmt = '#,##0';
-        setoranRow.getCell(4).alignment = { horizontal: 'center' };
+        setoranRow.getCell(3).numFmt = '#,##0'; setoranRow.getCell(4).numFmt = '#,##0'; setoranRow.getCell(4).alignment = { horizontal: 'center' };
     }
 
-    // Styling Border
     worksheet.eachRow((row, rowNumber) => {
         if (rowNumber >= 5) {
             row.eachCell((cell) => {
                 if (!cell.fill || cell.fill.fgColor.argb !== 'FF0F766E') {
-                   cell.border = {
-                        top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
-                    };
+                   cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
                 }
                 if (cell.address.startsWith('A') || cell.address.startsWith('C') || cell.address.startsWith('D')) {
                     cell.alignment = { horizontal: 'center' };
@@ -958,290 +715,15 @@ async function downloadExcel() {
             });
         }
     });
+    worksheet.getColumn(1).width = 5; worksheet.getColumn(2).width = 45; worksheet.getColumn(3).width = 18; worksheet.getColumn(4).width = 18; worksheet.getColumn(5).width = 20;
 
-    // Lebar Kolom
-    worksheet.getColumn(1).width = 5;
-    worksheet.getColumn(2).width = 45;
-    worksheet.getColumn(3).width = 18;
-    worksheet.getColumn(4).width = 18;
-    worksheet.getColumn(5).width = 20;
-
-    let fileName = "";
-    if (user.role === 'Kelompok') {
-        fileName = `Laporan_Kelompok_${namaKelompok}_${filterPeriodeRaw}.xlsx`;
-    } else if (user.role === 'Desa') {
-        fileName = `Laporan_Desa_${namaDesaDisplay}_${filterPeriodeRaw}.xlsx`;
-    } else if (user.role === 'Daerah') {
-        if (filterDesa) {
-            fileName = `Laporan_Desa_${filterDesa}_${filterPeriodeRaw}.xlsx`;
-        } else {
-            fileName = `Laporan_Daerah_Keseluruhan_${filterPeriodeRaw}.xlsx`;
-        }
-    }
+    let fileName = user.role === 'Kelompok' ? `Laporan_Kelompok_${namaKelompok}_${filterPeriodeRaw}.xlsx` : (user.role === 'Desa' ? `Laporan_Desa_${namaDesaDisplay}_${filterPeriodeRaw}.xlsx` : (filterDesa ? `Laporan_Desa_${filterDesa}_${filterPeriodeRaw}.xlsx` : `Laporan_Daerah_Keseluruhan_${filterPeriodeRaw}.xlsx`));
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
-    window.URL.revokeObjectURL(url);
-    showToast("File Excel berhasil didownload!");
-}// --- LOGIKA DOWNLOAD EXCEL (UPDATE 1) ---
-async function downloadExcel() {
-    const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
-    const filterDesa = document.getElementById('filter-rekap-desa').value;
-
-    if (!filterPeriodeRaw) return showToast("Pilih periode dulu!");
-
-    const [year, month] = filterPeriodeRaw.split('-');
-    const dateObj = new Date(year, month - 1);
-    const namaPeriode = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-    
-    let namaKelompok = (user.role === 'Kelompok' ? user.kelompok : ".........").toUpperCase();
-    let namaDesaDisplay = (user.desa || ".........").toUpperCase();
-    
-    if (user.role === 'Daerah') {
-        if(filterDesa) {
-            namaDesaDisplay = filterDesa.toUpperCase();
-        } else {
-            namaDesaDisplay = ""; 
-        }
-    }
-
-    // --- KONFIGURASI KATEGORI (DIUPDATE SESUAI REQUEST) ---
-    let allowedCategories = [];
-    if (user.role === 'Daerah') {
-        // Daerah hanya melihat A, B, C, D (Sumber Utama)
-        // E dan F tidak ditampilkan karena ini laporan penerimaan daerah
-        allowedCategories = ['A', 'B', 'C', 'D'];
-    } else if (user.role === 'Desa') {
-        // Desa melihat A, B, C, D, E
-        // F (Hak Kelompok) tidak ditampilkan
-        allowedCategories = ['A', 'B', 'C', 'D', 'E'];
-    } else if (user.role === 'Kelompok') {
-        // Kelompok melihat semuanya A, B, C, D, E, F
-        allowedCategories = ['A', 'B', 'C', 'D', 'E', 'F'];
-    }
-
-    // --- LOGIKA JUDUL ---
-    let reportTitle = "";
-    let reportSubtitle = "";
-    let reportPeriod = "PERIODE " + namaPeriode;
-
-    if (user.role === 'Kelompok') {
-        reportTitle = "REKAPITULASI HIBAH BULANAN KELOMPOK KE DESA";
-        reportSubtitle = `KELOMPOK ${namaKelompok} DESA ${namaDesaDisplay}`;
-    } else if (user.role === 'Desa') {
-        reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
-        reportSubtitle = `DESA ${namaDesaDisplay}`;
-    } else if (user.role === 'Daerah') {
-        if (filterDesa) {
-            reportTitle = "REKAPITULASI HIBAH BULANAN DESA KE DAERAH";
-            reportSubtitle = `DESA ${namaDesaDisplay}`;
-        } else {
-            reportTitle = "REKAPITULASI HIBAH BULANAN DAERAH";
-            reportSubtitle = ""; 
-        }
-    }
-
-    // --- LOGIKA TARGET ---
-    let targetKey;
-    if (user.role === 'Kelompok') {
-        targetKey = user.kelompok;
-    } else if (user.role === 'Desa') {
-        targetKey = user.desa;
-    } else if (user.role === 'Daerah') {
-        targetKey = filterDesa || "Daerah";
-    } else {
-        targetKey = "";
-    }
-    const currentTargets = targetsData[targetKey] || {};
-    
-    // --- PENGHITUNGAN DATA ---
-    const categorizedData = {};
-    configData.forEach(conf => {
-        // Filter baris berdasarkan allowedCategories
-        if (allowedCategories.length > 0 && !allowedCategories.includes(conf.cat_code.toUpperCase())) {
-            return; 
-        }
-
-        if (!categorizedData[conf.cat_title]) categorizedData[conf.cat_title] = [];
-        
-        const realisasiBln = allTransactions.filter(t => {
-            const tPeriode = String(t.periode).trim();
-            let matchRole = true;
-
-            if (user.role === 'Kelompok') {
-                matchRole = t.kelompok === user.kelompok;
-            } else if (user.role === 'Desa') {
-                matchRole = t.desa === user.desa;
-            } else if (user.role === 'Daerah') {
-                if (filterDesa) {
-                    matchRole = t.desa === filterDesa;
-                }
-            }
-
-            return tPeriode === filterPeriodeRaw && matchRole;
-        }).reduce((acc, t) => {
-            let vals = {}; try { vals = JSON.parse(t.values_json); } catch(e){}
-            return acc + (parseFloat(vals[conf.item_id]) || 0);
-        }, 0);
-
-        categorizedData[conf.cat_title].push({
-            cat_code: conf.cat_code,
-            label: conf.item_label,
-            target: parseFloat(currentTargets[conf.item_id]) || 0,
-            realisasi: realisasiBln
-        });
-    });
-
-    // --- MEMBUAT EXCEL ---
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Laporan', {
-        pageSetup: { paperSize: 9, orientation: 'portrait' }
-    });
-
-    worksheet.mergeCells('A1:E1');
-    worksheet.mergeCells('A2:E2');
-    worksheet.mergeCells('A3:E3');
-    
-    const titleRow = worksheet.getCell('A1');
-    titleRow.value = reportTitle;
-    titleRow.font = { bold: true, size: 14 };
-    titleRow.alignment = { horizontal: 'center' };
-
-    const subtitleRow = worksheet.getCell('A2');
-    subtitleRow.value = reportSubtitle;
-    subtitleRow.font = { bold: true, size: 11 };
-    subtitleRow.alignment = { horizontal: 'center' };
-
-    const periodRow = worksheet.getCell('A3');
-    periodRow.value = reportPeriod;
-    periodRow.font = { bold: true, size: 11 };
-    periodRow.alignment = { horizontal: 'center' };
-
-    // Header Tabel
-    const headerRow = worksheet.addRow(['NO', 'URAIAN', 'TARGET', 'REALISASI', 'KETERANGAN']);
-    headerRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
-        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        cell.alignment = { horizontal: 'center' };
-    });
-
-    // Isi Data
-    let counter = 1;
-    let totalTarget = 0;
-    let grandTotalRealisasi = 0;
-
-    // Hitung Hak Khusus untuk Footer
-    // Karena F disembunyikan untuk Desa, totalHakKelompok akan tetap 0 untuk user Desa
-    let totalHakKelompok = 0; // Kode F
-    let totalHakDesa = 0;     // Kode E
-
-    for (const [catTitle, items] of Object.entries(categorizedData)) {
-        const cat = configData.find(c => c.cat_title === catTitle);
-        const catCode = cat ? cat.cat_code : '';
-
-        const catRow = worksheet.addRow(['', catTitle.toUpperCase(), '', '', '']);
-        catRow.getCell(2).font = { bold: true };
-        
-        items.forEach(item => {
-            totalTarget += item.target;
-            grandTotalRealisasi += item.realisasi;
-
-            // Cek Kode untuk menghitung Hak (Hanya berjalan jika kategori ada di allowedCategories)
-            if (catCode === 'F') totalHakKelompok += item.realisasi;
-            if (catCode === 'E') totalHakDesa += item.realisasi;
-
-            const row = worksheet.addRow([counter++, item.label, item.target, item.realisasi, ""]);
-            row.getCell(3).numFmt = '#,##0';
-            row.getCell(4).numFmt = '#,##0';
-        });
-    }
-    
-    // Footer Total (Grand Total)
-    const footerRow = worksheet.addRow(['', 'TOTAL KESELURUHAN', totalTarget, grandTotalRealisasi, '']);
-    footerRow.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
-    });
-    footerRow.getCell(3).numFmt = '#,##0';
-    footerRow.getCell(4).numFmt = '#,##0';
-
-    // --- BARIS TOTAL YANG DISETOR ---
-    let totalYangDisetor = 0;
-    let labelSetoran = "";
-
-    if (user.role === 'Kelompok') {
-        // Kelompok: Total - Hak Kelompok (F)
-        totalYangDisetor = grandTotalRealisasi - totalHakKelompok;
-        labelSetoran = "TOTAL YANG DISETOR KE DESA";
-    } else if (user.role === 'Desa') {
-        // Desa: Total - Hak Desa (E)
-        // Catatan: Karena F tidak ditampilkan (allowedCategories), maka totalHakKelompok = 0
-        totalYangDisetor = grandTotalRealisasi - totalHakDesa;
-        labelSetoran = "TOTAL YANG DISETOR KE DAERAH";
-    }
-    // Daerah tidak perlu baris "Disetor" karena Daerah adalah tujuan akhir
-
-    if ((user.role === 'Kelompok' || user.role === 'Desa') && totalYangDisetor > 0) {
-        const setoranRow = worksheet.addRow(['', labelSetoran, '', totalYangDisetor, '']);
-        setoranRow.eachCell((cell) => {
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
-            cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        });
-        setoranRow.getCell(3).numFmt = '#,##0';
-        setoranRow.getCell(4).numFmt = '#,##0';
-        setoranRow.getCell(4).alignment = { horizontal: 'center' };
-    }
-
-    // Styling Border
-    worksheet.eachRow((row, rowNumber) => {
-        if (rowNumber >= 5) {
-            row.eachCell((cell) => {
-                if (!cell.fill || cell.fill.fgColor.argb !== 'FF0F766E') {
-                   cell.border = {
-                        top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
-                    };
-                }
-                if (cell.address.startsWith('A') || cell.address.startsWith('C') || cell.address.startsWith('D')) {
-                    cell.alignment = { horizontal: 'center' };
-                }
-            });
-        }
-    });
-
-    // Lebar Kolom
-    worksheet.getColumn(1).width = 5;
-    worksheet.getColumn(2).width = 45;
-    worksheet.getColumn(3).width = 18;
-    worksheet.getColumn(4).width = 18;
-    worksheet.getColumn(5).width = 20;
-
-    let fileName = "";
-    if (user.role === 'Kelompok') {
-        fileName = `Laporan_Kelompok_${namaKelompok}_${filterPeriodeRaw}.xlsx`;
-    } else if (user.role === 'Desa') {
-        fileName = `Laporan_Desa_${namaDesaDisplay}_${filterPeriodeRaw}.xlsx`;
-    } else if (user.role === 'Daerah') {
-        if (filterDesa) {
-            fileName = `Laporan_Desa_${filterDesa}_${filterPeriodeRaw}.xlsx`;
-        } else {
-            fileName = `Laporan_Daerah_Keseluruhan_${filterPeriodeRaw}.xlsx`;
-        }
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
+    anchor.href = url; anchor.download = fileName; anchor.click();
     window.URL.revokeObjectURL(url);
     showToast("File Excel berhasil didownload!");
 }
