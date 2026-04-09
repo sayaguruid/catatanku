@@ -148,7 +148,22 @@ function buildForm() {
     tabsContainer.innerHTML = ''; itemsContainer.innerHTML = '';
 
     const categories = {};
+    
+    // Loop config data
     configData.forEach(item => {
+        // --- SECURITY FILTER: CEK allowed_groups ---
+        // Jika allowed_groups bukan "ALL", cek apakah user kelompok cocok
+        if (item.allowed_groups && item.allowed_groups !== "ALL") {
+            // Kita asumsikan user.kelompok harus ada di dalam string allowed_groups
+            // Contoh: allowed_groups = "A 1", user.kelompok = "A 1" -> Boleh
+            // Jika user.kelompok tidak sama, maka SKIP (jangan ditampilkan)
+            if (!user.kelompok || item.allowed_groups.indexOf(user.kelompok) === -1) {
+                return; // Lewati item ini
+            }
+        }
+
+        // --- END FILTER ---
+
         if (!categories[item.cat_code]) {
             categories[item.cat_code] = { title: item.cat_title, items: [] };
         }
@@ -160,33 +175,32 @@ function buildForm() {
         const btn = document.createElement('button');
         btn.className = `cat-tab ${index === 0 ? 'active' : ''}`;
         btn.id = `tab-btn-${code}`;
-        btn.innerText = `${code}. ${escapeHtml(cat.title)}`; // Sanitasi
+        btn.innerText = `${code}. ${escapeHtml(cat.title)}`;
         btn.onclick = () => switchCategory(code);
         tabsContainer.appendChild(btn);
 
         const pane = document.createElement('div');
         pane.id = `pane-${code}`;
         pane.className = `cat-pane ${index === 0 ? 'active' : ''}`;
+        
         cat.items.forEach(item => {
             const row = document.createElement('div');
             row.className = 'item-row';
             
-            // Gunakan textContent/innerText untuk label demi keamanan
             const labelDiv = document.createElement('label');
             labelDiv.style.cssText = "font-size:0.85rem";
             labelDiv.innerText = item.item_label;
-            
             row.appendChild(labelDiv);
 
             const currencyDiv = document.createElement('div');
             currencyDiv.className = 'currency-wrap';
-            currencyDiv.innerHTML = '<span>Rp</span>'; // Statis aman
+            currencyDiv.innerHTML = '<span>Rp</span>';
             
             const inp = document.createElement('input');
             inp.type = 'text';
             inp.inputMode = 'numeric';
             inp.className = 'form-control money-input';
-            inp.dataset.id = item.item_id;
+            inp.dataset.id = item.item_id; // ID sekarang benar karena perbaikan backend
             inp.placeholder = '0';
             inp.oninput = function() { formatInputOnKey(this) };
             
@@ -202,7 +216,7 @@ function buildForm() {
 
             pane.appendChild(row);
             
-            // Split Preview Logic
+            // Split Preview Logic (Opsional, tetapkan jika diperlukan)
             if (item.is_split) {
                 const previewDiv = document.createElement('div');
                 previewDiv.className = 'split-preview';
@@ -224,10 +238,13 @@ function buildForm() {
         });
         itemsContainer.appendChild(pane);
     });
-    document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
+    
+    // Set default periode jika kosong
+    if(document.getElementById('input-periode').value === "") {
+        document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
+    }
     updateLiveTotal();
 }
-
 function switchCategory(code) {
     document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.cat-pane').forEach(p => p.classList.remove('active'));
