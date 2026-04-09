@@ -99,13 +99,34 @@ function fetchConfig() {
 
 function fetchData() {
     const token = localStorage.getItem('app_token');
-    fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'fetch_data', token: token }) })
+    
+    // Tambahkan console.log untuk debugging (opsional, bisa dihapus nanti)
+    // console.log("Mengambil data..."); 
+
+    fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'fetch_data', token: token }) 
+    })
     .then(r => r.json())
-    .then(data => {
-        allTransactions = data;
+    .then(res => {
+        // --- PERBAIKAN PENTING DI SINI ---
+        // Kita ambil 'res.data' (array), bukan 'res' (object)
+        if (res.status === 'success') {
+            allTransactions = res.data || []; 
+            // console.log("Data diterima:", allTransactions.length, "baris");
+        } else {
+            console.error("Gagal fetch data:", res.message);
+            allTransactions = [];
+        }
+        // ----------------------------------
+
         updateDesaFilterOptions();
         renderDataTable();
         renderRecapTable();
+    })
+    .catch(e => {
+        console.error("Error koneksi:", e);
+        showToast("Gagal mengambil data dari server");
     });
 }
 
