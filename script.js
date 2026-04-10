@@ -1,6 +1,8 @@
-// Ganti URL ini dengan URL Web App Google Script Anda
+// --- KONFIGURASI ---
+// Ganti URL ini dengan URL Web App Google Script Anda (Deploy sebagai 'Me' atau 'Anyone')
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyo65StO07OygmbXGwFzoE-FVCGB9u-VfC9S9IL1uv78XxeeZpRMrLhdMlOLJqXiY2H/exec'; 
 
+// --- STATE GLOBAL ---
 let user = null;
 let authToken = null;
 let configData = [];
@@ -9,7 +11,10 @@ let isEditing = false;
 let editId = null;
 let targetsData = {}; 
 
-// --- UTILS ---
+// ==========================================
+// UTILITIES
+// ==========================================
+
 function parseRupiah(str) {
     if (!str) return 0;
     let cleaned = String(str).replace(/\./g, '').replace(/,/g, '.');
@@ -25,10 +30,12 @@ function formatInputOnKey(el) {
     let originalLength = el.value.length;
     let value = el.value.replace(/[^0-9]/g, '');
     el.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    
     let newLength = el.value.length;
     if (value !== "") {
         el.selectionStart = el.selectionEnd = cursorPosition + (newLength - originalLength);
     }
+    // Update total live setiap ketikan
     updateLiveTotal();
 }
 
@@ -37,11 +44,14 @@ function updateLiveTotal() {
     document.querySelectorAll('.money-input').forEach(inp => {
         total += parseRupiah(inp.value);
     });
-    document.getElementById('live-total').innerText = "Rp " + formatRupiah(total);
+    const el = document.getElementById('live-total');
+    if(el) el.innerText = "Rp " + formatRupiah(total);
 }
 
 function securePost(payload) {
+    // Selalu sertakan token jika user sudah login
     if (authToken) payload.token = authToken;
+    
     return fetch(SCRIPT_URL, {
         method: 'POST',
         body: JSON.stringify(payload)
@@ -50,11 +60,17 @@ function securePost(payload) {
 
 function showToast(msg) {
     const t = document.getElementById('toast');
-    t.innerText = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
+    if(t) {
+        t.innerText = msg; 
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
 }
 
-// --- AUTH ---
+// ==========================================
+// AUTHENTICATION
+// ==========================================
+
 function doLogin() {
     const pass = document.getElementById('login-pass').value.trim();
     const msg = document.getElementById('login-msg');
@@ -81,6 +97,7 @@ function initApp() {
     document.getElementById('u-name').innerText = user.nama_admin;
     document.getElementById('u-role').innerText = `${user.role} | ${user.kelompok || user.desa || ''}`;
     
+    // Tampilkan menu khusus Daerah
     if(user.role === 'Daerah') {
         document.getElementById('filter-desa-container').style.display = 'block';
         document.getElementById('filter-desa-rekap-container').style.display = 'block';
@@ -91,11 +108,15 @@ function initApp() {
     fetchConfig();
 }
 
-// --- DATA FETCHING ---
+// ==========================================
+// DATA FETCHING
+// ==========================================
+
 function fetchConfig() {
     securePost({ action: 'get_config' }) 
     .then(res => {
         if(res.status !== 'success') return alert(res.message);
+        
         configData = res.config.map(r => ({
             cat_code: r.cat_code, cat_title: r.cat_title, item_id: r.item_id, item_label: r.item_label,
             tipe: r.tipe, allowed_groups: r.allowed_groups || "ALL",
@@ -104,6 +125,7 @@ function fetchConfig() {
         
         // Pastikan targetsData adalah objek yang valid
         targetsData = res.targets || {}; 
+        
         buildForm();
         fetchData();
         
@@ -118,15 +140,20 @@ function fetchData() {
             allTransactions = res.data;
             updateDesaFilterOptions();
             renderDataTable();
-            renderRecapTable(); // Panggil render rekap saat data fetch
+            renderRecapTable(); // Render rekap saat data diambil
         }
     });
 }
 
-// --- UI BUILDERS ---
+// ==========================================
+// UI BUILDERS
+// ==========================================
+
 function buildForm() {
     const tabsContainer = document.getElementById('dynamic-tabs');
     const itemsContainer = document.getElementById('dynamic-items');
+    if(!tabsContainer || !itemsContainer) return;
+    
     tabsContainer.innerHTML = ''; itemsContainer.innerHTML = '';
 
     const categories = {};
@@ -162,6 +189,7 @@ function buildForm() {
             `;
             pane.appendChild(row);
             
+            // Preview Split jika aktif
             if (item.is_split) {
                 const inp = row.querySelector('.money-input'); 
                 const previewDiv = document.createElement('div');
@@ -184,7 +212,10 @@ function buildForm() {
         });
         itemsContainer.appendChild(pane);
     });
-    document.getElementById('input-periode').value = new Date().toISOString().slice(0, 7);
+    
+    const periodeInput = document.getElementById('input-periode');
+    if(periodeInput) periodeInput.value = new Date().toISOString().slice(0, 7);
+    
     updateLiveTotal();
 }
 
@@ -193,6 +224,7 @@ function renderDataTable() {
     const filterPeriode = document.getElementById('filter-data-periode').value;
     const filterDesa = document.getElementById('filter-data-desa').value;
     
+    if(!tbody) return;
     tbody.innerHTML = '';
     let grandTotal = 0;
 
@@ -226,7 +258,9 @@ function renderDataTable() {
         `;
         tbody.appendChild(tr);
     });
-    document.getElementById('grand-total-data').innerText = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+    
+    const grandTotalEl = document.getElementById('grand-total-data');
+    if(grandTotalEl) grandTotalEl.innerText = `Rp ${grandTotal.toLocaleString('id-ID')}`;
 }
 
 // --- FIX: RENDER REKAP TABLE (HTML) ---
@@ -234,12 +268,15 @@ function renderRecapTable() {
     const tbody = document.getElementById('table-body-rekap');
     const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
     const filterDesa = document.getElementById('filter-rekap-desa').value; 
+    
+    if(!tbody) return;
     tbody.innerHTML = '';
     
     // Jika periode belum dipilih, tampilkan pesan
     if (!filterPeriodeRaw) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-light);">Silakan pilih periode terlebih dahulu.</td></tr>';
-        document.getElementById('grand-total-rekap').innerText = "Rp 0";
+        const footer = document.getElementById('grand-total-rekap');
+        if(footer) footer.innerText = "Rp 0";
         return;
     }
 
@@ -338,10 +375,262 @@ function renderRecapTable() {
         tbody.appendChild(tr);
     });
 
-    document.getElementById('grand-total-rekap').innerText = `Rp ${grandTotalBlnIni.toLocaleString('id-ID')}`;
+    const footer = document.getElementById('grand-total-rekap');
+    if(footer) footer.innerText = `Rp ${grandTotalBlnIni.toLocaleString('id-ID')}`;
 }
 
-// --- ACTION HANDLERS ---
+// --- TARGETS VIEW FIX ---
+function renderTargetsTable() {
+    const thead = document.getElementById('thead-targets');
+    const tbody = document.getElementById('tbody-targets');
+    if(!thead || !tbody) return;
+    
+    thead.innerHTML = ''; 
+    tbody.innerHTML = '';
+
+    if (!targetsData || Object.keys(targetsData).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem;">Belum ada data Target. Silakan tambahkan identity (Kelompok/Desa) terlebih dahulu.</td></tr>';
+        return;
+    }
+
+    // Ambil daftar ID item dari Config untuk dijadikan kolom
+    const itemsList = configData.map(c => c.item_id);
+
+    // 1. Buat Header
+    let headerHTML = '<tr><th style="position:sticky; left:0; background:#f8fafc; z-index:10;">Identitas</th>';
+    itemsList.forEach(itemId => {
+        const itemConf = configData.find(c => c.item_id === itemId);
+        const label = itemConf ? itemConf.item_label : itemId;
+        headerHTML += `<th style="min-width:120px; text-align:center; font-size:0.75rem;">${label}</th>`;
+    });
+    headerHTML += '</tr>';
+    thead.innerHTML = headerHTML;
+
+    // 2. Buat Body
+    Object.keys(targetsData).forEach(identity => {
+        const tr = document.createElement('tr');
+        let rowHTML = `<td style="font-weight:bold; position:sticky; left:0; background:white; z-index:5; border-right:2px solid #ddd;">${identity}</td>`;
+        
+        const dataRow = targetsData[identity]; 
+
+        itemsList.forEach(itemId => {
+            const val = dataRow[itemId] || 0; 
+            rowHTML += `
+                <td style="text-align:center;">
+                    <input type="number" 
+                           class="target-input" 
+                           value="${val}" 
+                           style="width:100px; text-align:center; padding:5px; border:1px solid #ddd; border-radius:4px;"
+                           onblur="updateTarget(this, '${identity}', '${itemId}')"
+                           onchange="this.style.background='#dcfce7'; setTimeout(()=>this.style.background='white', 500)">
+                </td>
+            `;
+        });
+
+        tr.innerHTML = rowHTML;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateTarget(inputEl, identity, itemId) {
+    const newValue = inputEl.value;
+    inputEl.style.background = '#fef9c3'; // Kuning saat proses
+
+    securePost({
+        action: 'update_target',
+        identity: identity,
+        item_id: itemId,
+        value: newValue
+    })
+    .then(res => {
+        if(res.status === 'success') {
+            inputEl.style.background = '#dcfce7'; // Hijau sukses
+            setTimeout(() => inputEl.style.background = 'white', 1000);
+            // Update local data
+            if(targetsData[identity]) {
+                targetsData[identity][itemId] = parseFloat(newValue) || 0;
+            }
+        } else {
+            alert("Gagal menyimpan: " + res.message);
+            inputEl.style.background = '#fee2e2'; // Merah gagal
+        }
+    })
+    .catch(e => {
+        console.error(e);
+        inputEl.style.background = '#fee2e2';
+    });
+}
+
+// --- CONFIG CRUD ---
+function renderConfigTable() {
+    const tbody = document.getElementById('table-body-config');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    configData.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>${item.item_id}</b></td>
+            <td>${item.cat_title}</td>
+            <td>${item.item_label}</td>
+            <td><span style="font-size:0.75rem; background:${item.tipe==='Bulanan'?'#a78bfa':'#3b82f6'}; color:white; padding:2px 6px; border-radius:4px;">${item.tipe}</span></td>
+            <td>${item.allowed_groups || "ALL"}</td>
+            <td>
+                <button class="btn btn-sm" onclick="editConfig('${item.item_id}')"><i class="ph ph-pencil-simple"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteConfig('${item.item_id}')"><i class="ph ph-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openConfigModal(isEdit = false) {
+    document.getElementById('config-modal').style.display = 'flex';
+    document.getElementById('modal-title-config').innerText = isEdit ? "Edit Item Config" : "Tambah Item Config";
+    
+    if (!isEdit) {
+        // Reset form jika mode tambah baru
+        document.getElementById('cfg-old-id').value = '';
+        document.getElementById('cfg-item-id').value = '';
+        document.getElementById('cfg-cat-code').value = '';
+        document.getElementById('cfg-cat-title').value = '';
+        document.getElementById('cfg-item-label').value = '';
+        document.getElementById('cfg-tipe').value = 'Bulanan';
+        document.getElementById('cfg-groups').value = '';
+        
+        document.getElementById('cfg-is-split').checked = false;
+        document.getElementById('split-inputs').style.display = 'none';
+        document.getElementById('cfg-split-kel').value = 0;
+        document.getElementById('cfg-split-desa').value = 0;
+        document.getElementById('cfg-split-dah').value = 0;
+    }
+}
+
+function closeConfigModal() {
+    document.getElementById('config-modal').style.display = 'none';
+}
+
+function editConfig(id) {
+    const item = configData.find(x => x.item_id === id);
+    if (!item) return alert("Data tidak ditemukan!");
+
+    // Isi hidden ID (untuk penanda update)
+    document.getElementById('cfg-old-id').value = item.item_id;
+    
+    // Isi field form
+    document.getElementById('cfg-item-id').value = item.item_id;
+    document.getElementById('cfg-cat-code').value = item.cat_code || '';
+    document.getElementById('cfg-cat-title').value = item.cat_title || '';
+    document.getElementById('cfg-item-label').value = item.item_label || '';
+    document.getElementById('cfg-tipe').value = item.tipe || 'Bulanan';
+    document.getElementById('cfg-groups').value = item.allowed_groups || '';
+
+    // Handle Split Configuration
+    const isSplit = item.is_split || false;
+    document.getElementById('cfg-is-split').checked = isSplit;
+    
+    // Tampilkan/sembunyikan input split
+    const splitDiv = document.getElementById('split-inputs');
+    splitDiv.style.display = isSplit ? 'grid' : 'none';
+
+    // Isi nilai persentase split
+    document.getElementById('cfg-split-kel').value = item.split_kel || 0;
+    document.getElementById('cfg-split-desa').value = item.split_desa || 0;
+    document.getElementById('cfg-split-dah').value = item.split_daerah || 0;
+
+    // Buka Modal
+    openConfigModal(true);
+}
+
+function saveConfig() {
+    const oldId = document.getElementById('cfg-old-id').value.trim();
+    const itemId = document.getElementById('cfg-item-id').value.trim();
+    const catCode = document.getElementById('cfg-cat-code').value.trim();
+    const catTitle = document.getElementById('cfg-cat-title').value.trim();
+    const itemLabel = document.getElementById('cfg-item-label').value.trim();
+    const tipe = document.getElementById('cfg-tipe').value;
+    const groups = document.getElementById('cfg-groups').value.trim();
+
+    const isSplit = document.getElementById('cfg-is-split').checked;
+    const splitKel = parseFloat(document.getElementById('cfg-split-kel').value) || 0;
+    const splitDesa = parseFloat(document.getElementById('cfg-split-desa').value) || 0;
+    const splitDah = parseFloat(document.getElementById('cfg-split-dah').value) || 0;
+
+    // Validasi Wajib
+    if (!itemId || !catCode || !catTitle || !itemLabel) {
+        return showToast("Lengkapi data wajib (ID, Kode, Judul, Label)!");
+    }
+
+    // Validasi Split
+    if (isSplit && (splitKel + splitDesa + splitDah !== 100)) {
+        return showToast("Total persentase split harus 100%!");
+    }
+
+    // Tentukan Action
+    const action = oldId ? 'update_config' : 'create_config';
+    
+    const payload = {
+        action: action,
+        old_id: oldId, 
+        item_id: itemId,
+        cat_code: catCode,
+        cat_title: catTitle,
+        item_label: itemLabel,
+        tipe: tipe,
+        allowed_groups: groups || "ALL",
+        is_split: isSplit,
+        split_kel: splitKel,
+        split_desa: splitDesa,
+        split_daerah: splitDah
+    };
+
+    // Loading
+    const btn = document.querySelector('#config-modal .btn-primary');
+    const originalText = btn.innerText;
+    btn.innerText = "Menyimpan...";
+    btn.disabled = true;
+
+    securePost(payload)
+    .then(res => {
+        if (res.status === 'success') {
+            showToast("Config berhasil disimpan!");
+            closeConfigModal();
+            fetchConfig(); 
+            renderConfigTable();
+        } else {
+            showToast("Error: " + res.message);
+        }
+    })
+    .catch(e => {
+        console.error(e);
+        showToast("Terjadi kesalahan koneksi.");
+    })
+    .finally(() => {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    });
+}
+
+function deleteConfig(id) {
+    if(!confirm("Hapus item ini?")) return;
+    securePost({ action: 'delete_config', item_id: id }).then(res => {
+        if(res.status === 'success') { 
+            fetchConfig(); 
+            renderConfigTable(); 
+        }
+    });
+}
+
+// Event Listener untuk Checkbox Split
+document.getElementById('cfg-is-split').addEventListener('change', function() {
+    const div = document.getElementById('split-inputs');
+    div.style.display = this.checked ? 'grid' : 'none';
+});
+
+// ==========================================
+// ACTIONS
+// ==========================================
+
 function submitData() {
     const btn = document.getElementById('btn-submit');
     const periode = document.getElementById('input-periode').value;
@@ -358,6 +647,7 @@ function submitData() {
 
     let processedValues = JSON.parse(JSON.stringify(values));
 
+    // Logic Split Hanya jika User BUKAN Daerah
     if (user.role !== 'Daerah') {
         Object.keys(values).forEach(key => {
             const conf = configData.find(c => c.item_id === key);
@@ -418,7 +708,92 @@ function deleteData(id) {
     });
 }
 
-// --- EXPORT EXCEL (Menggunakan ExcelJS) ---
+// ==========================================
+// HELPERS
+// ==========================================
+
+function switchTab(tabName) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+    document.getElementById(`nav-${tabName}`).classList.add('active');
+    document.getElementById(`view-${tabName}`).classList.add('active');
+    
+    if(tabName === 'config' && user.role === 'Daerah') renderConfigTable();
+    if(tabName === 'targets' && user.role === 'Daerah') renderTargetsTable();
+    if(tabName === 'rekap') renderRecapTable(); // Force refresh rekap
+}
+
+function switchCategory(code) {
+    document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.cat-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(`tab-btn-${code}`).classList.add('active');
+    document.getElementById(`pane-${code}`).classList.add('active');
+}
+
+function quickFill(btn, amount) {
+    const inp = btn.parentElement.querySelector('input');
+    let newVal = parseRupiah(inp.value) + amount;
+    inp.value = formatRupiah(newVal);
+    updateLiveTotal();
+}
+
+function updateDesaFilterOptions() {
+    if(user.role !== 'Daerah') return;
+    const desas = [...new Set(allTransactions.map(t => t.desa))].filter(Boolean);
+    const selects = [document.getElementById('filter-data-desa'), document.getElementById('filter-rekap-desa')];
+    selects.forEach(sel => {
+        sel.innerHTML = '<option value="">Semua Desa</option>';
+        desas.forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
+    });
+}
+
+function resetForm() {
+    isEditing = false; editId = null;
+    const title = document.getElementById('form-title');
+    if(title) title.innerText = "Input Baru";
+    const cancelBtn = document.getElementById('cancel-edit');
+    if(cancelBtn) cancelBtn.style.display = 'none';
+    
+    const namaInput = document.getElementById('input-nama');
+    if(namaInput) namaInput.value = '';
+    
+    document.querySelectorAll('.money-input').forEach(i => i.value = '');
+    updateLiveTotal();
+}
+
+function editData(id) {
+    const t = allTransactions.find(x => x.id == id);
+    if(!t) return;
+    isEditing = true; editId = id;
+    
+    const title = document.getElementById('form-title');
+    if(title) title.innerText = "Edit Data";
+    
+    const cancelBtn = document.getElementById('cancel-edit');
+    if(cancelBtn) cancelBtn.style.display = 'block';
+
+    const periodeInput = document.getElementById('input-periode');
+    if(periodeInput) periodeInput.value = t.periode;
+
+    const namaInput = document.getElementById('input-nama');
+    if(namaInput) namaInput.value = t.nama_warga;
+
+    document.querySelectorAll('.money-input').forEach(i => i.value = '');
+    try {
+        const vals = JSON.parse(t.values_json);
+        for(let key in vals) {
+            const input = document.querySelector(`.money-input[data-id="${key}"]`);
+            if(input) input.value = formatRupiah(vals[key]);
+        }
+    } catch(e){}
+    updateLiveTotal();
+    switchTab('input');
+}
+
+// ==========================================
+// EXCEL EXPORT
+// ==========================================
+
 async function downloadExcel() {
     const filterPeriodeRaw = document.getElementById('filter-rekap-periode').value;
     const filterDesa = document.getElementById('filter-rekap-desa').value;
@@ -585,198 +960,4 @@ async function downloadExcel() {
     anchor.click();
     window.URL.revokeObjectURL(url);
     showToast("File Excel berhasil didownload!");
-}
-
-// --- TARGETS VIEW FIX ---
-function renderTargetsTable() {
-    const thead = document.getElementById('thead-targets');
-    const tbody = document.getElementById('tbody-targets');
-    thead.innerHTML = ''; 
-    tbody.innerHTML = '';
-
-    if (!targetsData || Object.keys(targetsData).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem;">Belum ada data Target. Silakan tambahkan identity (Kelompok/Desa) terlebih dahulu di sheet atau melalui input data pertama kali.</td></tr>';
-        return;
-    }
-
-    // Ambil daftar ID item dari Config untuk dijadikan kolom
-    const itemsList = configData.map(c => c.item_id);
-
-    // 1. Buat Header
-    let headerHTML = '<tr><th style="position:sticky; left:0; background:#f8fafc; z-index:10;">Identitas (Kelompok/Desa)</th>';
-    itemsList.forEach(itemId => {
-        const itemConf = configData.find(c => c.item_id === itemId);
-        const label = itemConf ? itemConf.item_label : itemId;
-        headerHTML += `<th style="min-width:120px; text-align:center; font-size:0.75rem;">${label}</th>`;
-    });
-    headerHTML += '</tr>';
-    thead.innerHTML = headerHTML;
-
-    // 2. Buat Body (Baris per Identity)
-    Object.keys(targetsData).forEach(identity => {
-        const tr = document.createElement('tr');
-        let rowHTML = `<td style="font-weight:bold; position:sticky; left:0; background:white; z-index:5; border-right:2px solid #ddd;">${identity}</td>`;
-        
-        const dataRow = targetsData[identity]; // Ini object: { "fr": 100000, "ckm": 50000 }
-
-        itemsList.forEach(itemId => {
-            const val = dataRow[itemId] || 0; // Ambil value, default 0 jika belum ada
-            rowHTML += `
-                <td style="text-align:center;">
-                    <input type="number" 
-                           class="target-input" 
-                           value="${val}" 
-                           style="width:100px; text-align:center; padding:5px; border:1px solid #ddd; border-radius:4px;"
-                           onblur="updateTarget(this, '${identity}', '${itemId}')"
-                           onchange="this.style.background='#dcfce7'; setTimeout(()=>this.style.background='white', 500)">
-                </td>
-            `;
-        });
-
-        tr.innerHTML = rowHTML;
-        tbody.appendChild(tr);
-    });
-}
-
-function updateTarget(inputEl, identity, itemId) {
-    const newValue = inputEl.value;
-    inputEl.style.background = '#fef9c3'; // Kuning saat proses
-
-    securePost({
-        action: 'update_target',
-        identity: identity,
-        item_id: itemId,
-        value: newValue
-    })
-    .then(res => {
-        if(res.status === 'success') {
-            inputEl.style.background = '#dcfce7'; // Hijau sukses
-            setTimeout(() => inputEl.style.background = 'white', 1000);
-            // Update local data
-            if(targetsData[identity]) {
-                targetsData[identity][itemId] = parseFloat(newValue) || 0;
-            }
-        } else {
-            alert("Gagal menyimpan: " + res.message);
-            inputEl.style.background = '#fee2e2'; // Merah gagal
-        }
-    })
-    .catch(e => {
-        console.error(e);
-        inputEl.style.background = '#fee2e2';
-    });
-}
-
-// --- HELPERS LAINNYA ---
-function switchTab(tabName) {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-    document.getElementById(`nav-${tabName}`).classList.add('active');
-    document.getElementById(`view-${tabName}`).classList.add('active');
-    if(tabName === 'config' && user.role === 'Daerah') renderConfigTable();
-    if(tabName === 'targets' && user.role === 'Daerah') renderTargetsTable();
-}
-
-function switchCategory(code) {
-    document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.cat-pane').forEach(p => p.classList.remove('active'));
-    document.getElementById(`tab-btn-${code}`).classList.add('active');
-    document.getElementById(`pane-${code}`).classList.add('active');
-}
-
-function quickFill(btn, amount) {
-    const inp = btn.parentElement.querySelector('input');
-    let newVal = parseRupiah(inp.value) + amount;
-    inp.value = formatRupiah(newVal);
-    updateLiveTotal();
-}
-
-function updateDesaFilterOptions() {
-    if(user.role !== 'Daerah') return;
-    const desas = [...new Set(allTransactions.map(t => t.desa))].filter(Boolean);
-    const selects = [document.getElementById('filter-data-desa'), document.getElementById('filter-rekap-desa')];
-    selects.forEach(sel => {
-        sel.innerHTML = '<option value="">Semua Desa</option>';
-        desas.forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
-    });
-}
-
-function resetForm() {
-    isEditing = false; editId = null;
-    document.getElementById('form-title').innerText = "Input Baru";
-    document.getElementById('cancel-edit').style.display = 'none';
-    document.getElementById('input-nama').value = '';
-    document.querySelectorAll('.money-input').forEach(i => i.value = '');
-    updateLiveTotal();
-}
-
-function editData(id) {
-    const t = allTransactions.find(x => x.id == id);
-    if(!t) return;
-    isEditing = true; editId = id;
-    document.getElementById('form-title').innerText = "Edit Data";
-    document.getElementById('cancel-edit').style.display = 'block';
-    document.getElementById('input-periode').value = t.periode;
-    document.getElementById('input-nama').value = t.nama_warga;
-    document.querySelectorAll('.money-input').forEach(i => i.value = '');
-    try {
-        const vals = JSON.parse(t.values_json);
-        for(let key in vals) {
-            const input = document.querySelector(`.money-input[data-id="${key}"]`);
-            if(input) input.value = formatRupiah(vals[key]);
-        }
-    } catch(e){}
-    updateLiveTotal();
-    switchTab('input');
-}
-
-// Config & Modal Helpers
-function renderConfigTable() {
-    const tbody = document.getElementById('table-body-config');
-    tbody.innerHTML = '';
-    configData.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><b>${item.item_id}</b></td>
-            <td>${item.cat_title}</td>
-            <td>${item.item_label}</td>
-            <td><span style="font-size:0.75rem; background:${item.tipe==='Bulanan'?'#a78bfa':'#3b82f6'}; color:white; padding:2px 6px; border-radius:4px;">${item.tipe}</span></td>
-            <td>${item.allowed_groups || "ALL"}</td>
-            <td>
-                <button class="btn btn-sm" onclick="editConfig('${item.item_id}')"><i class="ph ph-pencil-simple"></i></button>
-                <button class="btn btn-sm btn-danger" onclick="deleteConfig('${item.item_id}')"><i class="ph ph-trash"></i></button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function saveConfig() {
-    const payload = {
-        action: document.getElementById('cfg-old-id').value ? 'update_config' : 'create_config',
-        item_id: document.getElementById('cfg-item-id').value.trim(),
-        cat_code: document.getElementById('cfg-cat-code').value.trim(),
-        cat_title: document.getElementById('cfg-cat-title').value.trim(),
-        item_label: document.getElementById('cfg-item-label').value.trim(),
-        tipe: document.getElementById('cfg-tipe').value,
-        allowed_groups: document.getElementById('cfg-groups').value.trim() || "ALL",
-        is_split: document.getElementById('cfg-is-split').checked,
-        split_kel: parseFloat(document.getElementById('cfg-split-kel').value) || 0,
-        split_desa: parseFloat(document.getElementById('cfg-split-desa').value) || 0,
-        split_daerah: parseFloat(document.getElementById('cfg-split-dah').value) || 0
-    };
-    
-    securePost(payload).then(res => {
-        if(res.status === 'success') {
-            showToast("Config tersimpan");
-            closeConfigModal(); fetchConfig(); renderConfigTable();
-        } else { showToast("Error: "+res.message); }
-    });
-}
-
-function deleteConfig(id) {
-    if(!confirm("Hapus item ini?")) return;
-    securePost({ action: 'delete_config', item_id: id }).then(res => {
-        if(res.status === 'success') { fetchConfig(); renderConfigTable(); }
-    });
 }
