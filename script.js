@@ -3,7 +3,7 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyo65StO07OygmbXGwFzoE-FVCGB9u-VfC9S9IL1uv78XxeeZpRMrLhdMlOLJqXiY2H/exec'; 
 
 // --- TAMBAHAN: KONFIGURASI SESI ---
-// Durasi sesi aktif dalam milidetik (Contoh: 24 Jam = 24 * 60 * 60 * 1000)
+// Durasi sesi aktif dalam milidetik (24 Jam)
 const SESSION_DURATION = 24 * 60 * 60 * 1000; 
 
 // --- STATE GLOBAL ---
@@ -72,7 +72,7 @@ function showToast(msg) {
 }
 
 // ==========================================
-// AUTHENTICATION
+// AUTHENTICATION (DIPERBARUI)
 // ==========================================
 
 function doLogin() {
@@ -94,7 +94,7 @@ function doLogin() {
                 timestamp: Date.now() // Waktu login sekarang
             };
             localStorage.setItem('app_session', JSON.stringify(sessionData));
-            
+
             initApp();
         } else {
             msg.innerText = res.message;
@@ -102,6 +102,54 @@ function doLogin() {
     })
     .catch(e => msg.innerText = "Koneksi Error");
 }
+
+function doLogout() {
+    // Hapus data sesi dari penyimpanan browser
+    localStorage.removeItem('app_session');
+    
+    // Reset variabel global
+    user = null;
+    authToken = null;
+    
+    // Reload halaman agar kembali ke form login
+    location.reload();
+}
+
+function checkSession() {
+    const sessionStr = localStorage.getItem('app_session');
+    const loginMsg = document.getElementById('login-msg');
+
+    if (sessionStr) {
+        try {
+            const session = JSON.parse(sessionStr);
+            const now = Date.now();
+            const elapsed = now - session.timestamp;
+
+            // Cek apakah sesi sudah kedaluwarsa
+            if (elapsed > SESSION_DURATION) {
+                // Sesi habis
+                localStorage.removeItem('app_session');
+                if(loginMsg) loginMsg.innerText = "Sesi login telah habis. Silakan login ulang.";
+                // Biarkan user di halaman login
+            } else {
+                // Sesi masih valid
+                authToken = session.token;
+                user = session.user;
+                // Langsung masuk ke aplikasi
+                initApp();
+            }
+        } catch (e) {
+            // Data rusak, hapus saja
+            localStorage.removeItem('app_session');
+        }
+    }
+}
+
+// Jalankan pengecekan sesi saat DOM siap
+document.addEventListener('DOMContentLoaded', () => {
+    checkSession();
+});
+
 function initApp() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('app-view').style.display = 'block';
@@ -972,56 +1020,3 @@ async function downloadExcel() {
     window.URL.revokeObjectURL(url);
     showToast("File Excel berhasil didownload!");
 }
-
-// ==========================================
-// --- TAMBAHAN: MANAJEMEN SESI ---
-// ==========================================
-
-// Fungsi ini dijalankan saat halaman pertama kali dimuat
-function checkSession() {
-    const sessionStr = localStorage.getItem('app_session');
-    const loginMsg = document.getElementById('login-msg');
-
-    if (sessionStr) {
-        try {
-            const session = JSON.parse(sessionStr);
-            const now = Date.now();
-            const elapsed = now - session.timestamp;
-
-            // Cek apakah sesi sudah kedaluwarsa
-            if (elapsed > SESSION_DURATION) {
-                // Sesi habis
-                localStorage.removeItem('app_session');
-                if(loginMsg) loginMsg.innerText = "Sesi login telah habis. Silakan login ulang.";
-                // Biarkan user di halaman login
-            } else {
-                // Sesi masih valid
-                authToken = session.token;
-                user = session.user;
-                // Langsung masuk ke aplikasi
-                initApp();
-            }
-        } catch (e) {
-            // Data rusak, hapus saja
-            localStorage.removeItem('app_session');
-        }
-    }
-}
-
-// Fungsi Logout (Keluar dengan bersih)
-function doLogout() {
-    // Hapus data sesi dari penyimpanan browser
-    localStorage.removeItem('app_session');
-    
-    // Opsional: Reset variabel global
-    user = null;
-    authToken = null;
-    
-    // Reload halaman agar kembali ke form login
-    location.reload();
-}
-
-// Jalankan pengecekan sesi saat file script selesai dimuat
-document.addEventListener('DOMContentLoaded', () => {
-    checkSession();
-});
