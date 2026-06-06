@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bahan Belanja</title>
+    
+    <!-- External Resources -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    
+    <!-- Local CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- LOGIN SECTION -->
+    <div id="login-view">
+        <div class="login-box">
+            <div style="font-size: 3rem; color: var(--accent); margin-bottom: 0.5rem;"><i class="ph ph-safe"></i></div>
+            <h2 style="margin: 0 0 5px 0;">Jurnalku</h2>
+            <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 2rem;">Masukan password</p>
+            <div style="margin-bottom: 1rem;">
+                <input type="password" id="login-pass" placeholder="Password" style="text-align:center; letter-spacing: 1px;">
+            </div>
+            <button class="btn btn-primary" id="btn-login" onclick="doLogin()">MASUK</button>
+            <div id="login-msg" style="margin-top: 1rem; font-size: 0.85rem; min-height: 20px;"></div>
+        </div>
+    </div>
+
+    <!-- APP SECTION -->
+    <div id="app-view">
+        <!-- HEADER INFO -->
+        <header>
+            <div class="header-info">
+                <h1><i class="ph ph-cash-register"></i> Keuangan</h1>
+                <p id="header-detail">Kelompok: -</p>
+            </div>
+            <div style="display:flex; gap:1rem; align-items:center;">
+                <button class="btn btn-sm btn-danger" onclick="doLogout()"><i class="ph ph-sign-out"></i></button>
+            </div>
+        </header>
+
+        <!-- DASHBOARD WRAPPER -->
+        <div class="dashboard-wrapper">
+            <!-- 1. KARTU UTAMA (TOTAL BERJALAN) -->
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-light); font-size: 0.8rem;">TOTAL KAS & TABUNGAN (KUMULATIF)</h4>
+            <div class="card-grid">
+                <div class="card saldo main">
+                    <div class="card-label">Saldo Kas</div>
+                    <div class="card-value" id="val-saldo-main">Rp 0</div>
+                </div>
+                <!-- TAMBAHAN KARTU SALDO TABUNGAN -->
+                <div class="card saldo main" style="border-color: #f59e0b;">
+                    <div class="card-label">Saldo Tabungan</div>
+                    <div class="card-value" id="val-saldo-tabungan" style="color: #d97706;">Rp 0</div>
+                </div>
+                <div class="card masuk main">
+                    <div class="card-label">Pemasukan</div>
+                    <div class="card-value" style="color: var(--success);" id="val-masuk-main">Rp 0</div>
+                </div>
+                <div class="card keluar main">
+                    <div class="card-label">Pengeluaran</div>
+                    <div class="card-value" style="color: var(--danger);" id="val-keluar-main">Rp 0</div>
+                </div>
+            </div>
+
+
+            <!-- 2. KARTU PERIODE (KECIL) -->
+            <h4 style="margin: 1.5rem 0 0.5rem 0; color: var(--text-light); font-size: 0.8rem;">DATA PERIODE (<span id="lbl-periode">-</span>)</h4>
+            <div class="card-grid">
+                <div class="card saldo per">
+                    <div class="card-label">Saldo Periode</div>
+                    <div class="card-value" id="val-saldo-per">Rp 0</div>
+                </div>
+                <div class="card masuk per">
+                    <div class="card-label">Masuk Periode</div>
+                    <div class="card-value" style="color: var(--success);" id="val-masuk-per">Rp 0</div>
+                </div>
+                <div class="card keluar per">
+                    <div class="card-label">Keluar Periode</div>
+                    <div class="card-value" style="color: var(--danger);" id="val-keluar-per">Rp 0</div>
+                </div>
+            </div>
+
+            <!-- 3. MONITORING ANAK (HANYA UNTUK DESA & DAERAH) -->
+            <div id="monitor-section" class="hidden" style="margin-top: 1.5rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: var(--text-light); font-size: 0.8rem;">MONITORING SALDO KELOMPOK</h4>
+                <div id="monitor-grid" class="card-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));">
+                    <!-- Diisi otomatis via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TABS -->
+        <div class="nav-tabs">
+            <div class="tab-btn active" onclick="switchTab('transaksi')"><i class="ph ph-exchange"></i> Transaksi</div>
+            <div class="tab-btn" onclick="switchTab('tabungan')"><i class="ph ph-piggy-bank"></i> Tabungan</div>
+            <div class="tab-btn" onclick="switchTab('kategori')"><i class="ph ph-tag"></i> Kategori</div>
+        </div>
+
+        <!-- 1. TRANSAKSI -->
+        <div id="view-transaksi" class="view-section">
+            <div class="form-section">
+                <h3 style="margin-top:0">Input Kas Harian</h3>
+                <div class="form-row">
+                    <div><label>Tanggal</label><input type="date" id="tr-tanggal"></div>
+                    <div><label>Tipe</label>
+                        <select id="tr-tipe">
+                            <option value="masuk">Pemasukan (+)</option>
+                            <option value="keluar">Pengeluaran (-)</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label>Kategori Kas</label>
+                    <select id="tr-kategori"><option value="">-- Pilih Kategori Kas --</option></select>
+                </div>
+                <div class="form-row">
+                    <div><label>Nominal (Rp)</label>
+                        <input type="text" id="tr-nominal" placeholder="0" oninput="formatRupiahInput(this)" onkeyup="formatRupiahInput(this)">
+                    </div>
+                </div>
+                <div style="margin-bottom:1rem;"><label>Keterangan</label><input type="text" id="tr-ket" placeholder="Ket..."></div>
+                <button class="btn btn-primary" onclick="simpanTransaksi()"><i class="ph ph-floppy-disk"></i> Simpan Transaksi</button>
+            </div>
+            
+            <div class="table-container">
+                <div style="padding: 1rem; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <b>Riwayat Kas</b>
+                        <select id="filter-bulan" style="width:auto; padding:0.4rem;" onchange="updateFilter()"></select>
+                    </div>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-sm btn-primary" onclick="downloadExcel('buku')" style="background-color: #0f172a;"><i class="ph ph-notebook"></i> Download Buku Kas</button>
+                        <button class="btn btn-sm btn-primary" onclick="downloadExcel('laporan')"><i class="ph ph-chart-pie-slice"></i> Download Laporan Kas</button>
+                    </div>
+                </div>
+                <table id="table-transaksi">
+                    <thead><tr><th>Tgl</th><th>Tipe</th><th>Kategori</th><th>Ket</th><th style="text-align:right">Nominal</th><th>Aksi</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. TABUNGAN -->
+        <div id="view-tabungan" class="view-section hidden">
+            <div class="form-section">
+                <h3 style="margin-top:0; color: var(--accent);">Simpan Tabungan</h3>
+                <div class="form-row">
+                    <div><label>Tanggal</label><input type="date" id="tb-tanggal"></div>
+                    <div><label>Tipe</label>
+                        <select id="tb-tipe">
+                            <option value="masuk">Pemasukan (Setor)</option>
+                            <option value="keluar">Pengeluaran (Tarik)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div><label>Jenis Tabungan</label>
+                        <select id="tb-kategori"><option value="">-- Pilih Jenis --</option></select>
+                    </div>
+                    <div><label>Nominal (Rp)</label>
+                        <input type="text" id="tb-nominal" placeholder="0" oninput="formatRupiahInput(this)" onkeyup="formatRupiahInput(this)">
+                    </div>
+                </div>
+                <!-- TAMBAHAN KETERANGAN -->
+                <div style="margin-bottom:1rem;">
+                    <label>Keterangan</label>
+                    <input type="text" id="tb-ket" placeholder="Catatan...">
+                </div>
+                <button class="btn btn-primary" onclick="simpanTabungan()"><i class="ph ph-piggy-bank"></i> Simpan Tabungan</button>
+            </div>
+            <div class="table-container">
+                <div style="padding: 1rem; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <b>Riwayat Tabungan</b>
+                    <button class="btn btn-sm btn-primary" onclick="downloadExcel('laporan-tabungan')"><i class="ph ph-download-simple"></i> Laporan Tabungan</button>
+                </div>
+                <table>
+                    <!-- UPDATE HEADER TABLE -->
+                    <thead><tr><th>Tgl</th><th>Tipe</th><th>Jenis Tabungan</th><th>Keterangan</th><th style="text-align:right">Nominal</th><th>Aksi</th></tr></thead>
+                    <tbody id="tbody-tabungan"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. KATEGORI -->
+        <div id="view-kategori" class="view-section hidden">
+            <div class="form-section">
+                <h3 style="margin-top:0">Kelola Kategori</h3>
+                <p style="font-size:0.8rem; color:var(--text-light); margin-bottom:1rem;">
+                    Buat kategori untuk akun: <b id="my-akun-display">-</b>.
+                </p>
+                
+                <div class="add-cat-bar">
+                    <input type="text" id="kat-nama" placeholder="Nama Kategori Baru...">
+                    <select id="kat-tipe">
+                        <option value="Kas">Kas Harian</option>
+                        <option value="Tabungan">Tabungan</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addKategori()"><i class="ph ph-plus"></i></button>
+                </div>
+
+                <div id="list-kategori" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast"><i class="ph ph-info"></i> <span>Pesan</span></div>
+
+    <!-- Local Script -->
+    <script src="script.js"></script>
+</body>
+</html>
