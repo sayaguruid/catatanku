@@ -142,3 +142,21 @@ tfoot td { background: #f8fafc; font-weight: 700; color: var(--primary); border-
         color: var(--accent);
     }
 }
+/* Style Link di Paling Atas Login Box */
+.top-portal-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem; /* Jarak ikon dan teks */
+    text-decoration: none;
+    color: var(--text-light); /* Warna abu-abu agar lembut */
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius);
+    transition: all 0.2s;
+}
+
+.top-portal-link:hover {
+    background-color: #f1f5f9; /* Background abu-abu saat disentuh */
+    color: var(--accent); /* Berubah warna biru */
+}
