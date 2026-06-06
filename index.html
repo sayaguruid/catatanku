@@ -19,23 +19,28 @@
             <p style="color: var(--text-light); margin-bottom: 2rem;">Masukkan Password</p>
             <input type="password" id="login-pass" class="login-input" placeholder="PASSWORD">
             <button class="btn btn-primary" style="width:100%" onclick="doLogin()">MASUK</button>
+            
+            <!-- Area Pesan Error -->
             <p id="login-msg" style="margin-top:1rem; color: var(--danger); font-size:0.9rem; min-height:1.2rem;"></p>
+
+            <!-- LINK PORTAL DI BAWAH TOMBOL LOGIN -->
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <a href="https://catatan.balanja.co.id/ku/" target="_blank" class="login-footer-link" style="display:inline-flex; align-items:center; gap:0.5rem; text-decoration:none; color:var(--text-light); font-size:0.85rem; font-weight:600; transition: color 0.2s;">
+                    <i class="ph ph-arrow-u-up-left"></i> Kembali ke Portal Utama
+                </a>
+            </div>
+
         </div>
     </div>
 
     <div id="app-view">
         <header>
             <div class="logo"><i class="ph ph-safe-2"></i>CATATANKU</div>
-            <!-- TAMBAHAN LINK PORTAL DI HEADER -->
-    <a href="https://catatan.balanja.co.id/ku/" target="_blank" class="header-link" title="Ke Halaman Utama">
-        <i class="ph ph-house"></i> <span>Portal</span>
-    </a>
             <div class="user-profile">
                 <div style="text-align: right;">
                     <div id="u-name" style="font-weight:600;">User</div>
                     <div id="u-role" style="font-size:0.8rem; color:var(--text-light);">Role</div>
                 </div>
-                <!-- TOMBOL LOGOUT DIPERBARUI: memanggil fungsi doLogout() -->
                 <button class="btn btn-sm btn-danger" onclick="doLogout()"><i class="ph ph-sign-out"></i></button>
             </div>
         </header>
