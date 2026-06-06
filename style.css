@@ -89,3 +89,56 @@ tfoot td { background: #f8fafc; font-weight: 700; color: var(--primary); border-
     .filter-container { flex-direction: column; align-items: stretch; }
     .live-total-box { flex-direction: column; gap: 0.5rem; text-align: center; }
 }
+/* --- TAMBAHAN STYLE LINK PORTAL --- */
+
+/* Style Link di Halaman Login */
+.portal-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--text-light); /* Menggunakan warna abu-abu agar tidak mengganggu */
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.portal-link:hover {
+    color: var(--accent); /* Berubah biru saat di-hover */
+    text-decoration: underline;
+}
+
+/* Style Link di Header Aplikasi */
+.header-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background-color: #f1f5f9; /* Background abu-abu muda */
+    border-radius: var(--radius);
+    transition: all 0.2s;
+}
+
+.header-link:hover {
+    background-color: var(--accent);
+    color: white;
+}
+
+/* Responsif untuk Mobile (Sembunyikan teks, tampilkan ikon saja) */
+@media (max-width: 600px) {
+    .header-link span {
+        display: none;
+    }
+    .header-link {
+        padding: 0.5rem;
+        background: transparent;
+    }
+    .header-link:hover {
+        background: transparent;
+        color: var(--accent);
+    }
+}
