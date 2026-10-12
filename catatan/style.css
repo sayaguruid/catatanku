@@ -1,0 +1,81 @@
+/* --- UPLOAD UI --- */
+.upload-step {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    background: #f8fafc;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    align-items: flex-start;
+}
+
+.step-badge {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-size: 0.95rem;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content h4 {
+    margin: 0 0 0.5rem;
+    color: var(--primary);
+}
+
+.upload-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1.5rem;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    background: #f0f9ff;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.upload-dropzone:hover {
+    background: #e0f2fe;
+    border-color: var(--accent-hover);
+    transform: translateY(-2px);
+}
+
+.upload-dropzone.dragover {
+    background: #bfdbfe;
+    border-style: solid;
+    border-color: var(--accent-hover);
+}
+
+/* Spinner animation */
+.ph-spinner {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+    .upload-step {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .step-badge {
+        align-self: flex-start;
+    }
+}
