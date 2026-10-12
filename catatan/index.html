@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catatan KU - Sistem Aman</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ================= LOGIN VIEW ================= -->
+    <div id="login-view">
+        <div class="login-box">
+            <div style="font-size: 3rem; margin-bottom: 1rem;"><i class="ph ph-lock-key"></i></div>
+            <h2>Catatanku</h2>
+            <p style="color: var(--text-light); margin-bottom: 2rem;">Masukkan Password</p>
+            <input type="password" id="login-pass" class="login-input" placeholder="PASSWORD">
+            <button class="btn btn-primary" style="width:100%" onclick="doLogin()">MASUK</button>
+            <p id="login-msg" style="margin-top:1rem; color: var(--danger); font-size:0.9rem; min-height:1.2rem;"></p>
+
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <a href="https://catatan.balanja.co.id/ku/" target="_blank" class="login-footer-link" style="display:inline-flex; align-items:center; gap:0.5rem; text-decoration:none; color:var(--text-light); font-size:0.85rem; font-weight:600; transition: color 0.2s;">
+                    <i class="ph ph-book-open"></i> Tulis Jurnal
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= APP VIEW ================= -->
+    <div id="app-view">
+        <header>
+            <div class="logo"><i class="ph ph-safe-2"></i>CATATANKU</div>
+            <div class="user-profile">
+                <div style="text-align: right;">
+                    <div id="u-name" style="font-weight:600;">User</div>
+                    <div id="u-role" style="font-size:0.8rem; color:var(--text-light);">Role</div>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="doLogout()"><i class="ph ph-sign-out"></i></button>
+            </div>
+        </header>
+
+        <!-- NAVIGATION -->
+        <div class="nav-grid">
+            <div id="nav-upload" class="nav-btn active" onclick="switchTab('upload')">
+                <i class="ph ph-upload-simple"></i> Upload Excel
+            </div>
+            <div id="nav-data" class="nav-btn" onclick="switchTab('data')">
+                <i class="ph ph-table"></i> Transaksi
+            </div>
+            <div id="nav-rekap" class="nav-btn" onclick="switchTab('rekap')">
+                <i class="ph ph-chart-bar"></i> Rekap
+            </div>
+            <div id="nav-config" class="nav-btn" style="display:none;" onclick="switchTab('config')">
+                <i class="ph ph-gear"></i> Master Config
+            </div>
+            <div id="nav-targets" class="nav-btn" style="display:none;" onclick="switchTab('targets')">
+                <i class="ph ph-target"></i> Input Target
+            </div>
+        </div>
+
+        <!-- ================= VIEW: UPLOAD (KELOMPOK) ================= -->
+        <div id="view-upload" class="view-section active">
+            <div class="form-card">
+                <h3 style="margin-top:0;"><i class="ph ph-file-xls" style="color:var(--success);"></i> Upload Data Transaksi</h3>
+                <p style="color:var(--text-light); font-size:0.85rem; margin-top:0;">
+                    Silakan download template, isi datanya, lalu upload kembali. Data akan tersimpan otomatis.
+                </p>
+
+                <!-- STEP 1 -->
+                <div class="upload-step">
+                    <div class="step-badge">1</div>
+                    <div class="step-content">
+                        <h4 style="margin:0 0 0.5rem;">Download Template Excel</h4>
+                        <p style="color:var(--text-light); font-size:0.85rem; margin:0 0 1rem;">
+                            Template sudah disesuaikan dengan kelompok Anda: <b id="tpl-kelompok-name">-</b>
+                        </p>
+                        <button class="btn btn-primary" onclick="downloadTemplate()">
+                            <i class="ph ph-download-simple"></i> Download Template
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 2 -->
+                <div class="upload-step">
+                    <div class="step-badge">2</div>
+                    <div class="step-content" style="flex:1;">
+                        <h4 style="margin:0 0 0.5rem;">Upload File yang Sudah Diisi</h4>
+                        <input type="file" id="excel-upload" accept=".xlsx,.xls" onchange="handleFileUpload(event)" style="display:none;">
+                        <label for="excel-upload" class="upload-dropzone" id="dropzone">
+                            <i class="ph ph-upload" style="font-size:3rem; color:var(--accent);"></i>
+                            <p style="margin:0.5rem 0 0; font-weight:600;">Klik atau Drag & Drop file Excel</p>
+                            <p style="margin:0; font-size:0.8rem; color:var(--text-light);">Format: .xlsx atau .xls</p>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- STEP 3: PREVIEW -->
+                <div id="upload-preview" style="display:none;" class="upload-step">
+                    <div class="step-badge" style="background:var(--success);">3</div>
+                    <div class="step-content" style="flex:1;">
+                        <h4 style="margin:0 0 0.5rem;">Preview Data (<span id="preview-count">0</span> baris)</h4>
+                        <div id="preview-container" style="max-height:350px; overflow:auto; border:1px solid var(--border); border-radius:8px; background:white;"></div>
+                        <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+                            <button class="btn btn-success" onclick="confirmUpload(event)" style="flex:1;">
+                                <i class="ph ph-check"></i> Konfirmasi & Simpan
+                            </button>
+                            <button class="btn" style="background:#e2e8f0;" onclick="resetUpload()">Batal</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VIEW: DATA ================= -->
+        <div id="view-data" class="view-section">
+            <div class="filter-container">
+                <div>
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Periode</label>
+                    <input type="month" id="filter-data-periode" class="form-control" onchange="renderDataTable()">
+                </div>
+                <div id="filter-desa-container" style="display:none;">
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Desa</label>
+                    <select id="filter-data-desa" class="form-control" onchange="renderDataTable()">
+                        <option value="">Semua Desa</option>
+                    </select>
+                </div>
+                <button class="btn btn-sm" style="border:1px solid #ddd; background:white;" onclick="fetchData()">
+                    <i class="ph ph-arrows-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="table-card">
+                <table id="table-transaksi">
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Periode</th>
+                            <th>Nama</th>
+                            <th>Ds/Klp</th>
+                            <th>Total</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-data"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align:right">GRAND TOTAL</td>
+                            <td id="grand-total-data" style="color:var(--accent)">Rp 0</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= VIEW: REKAP ================= -->
+        <div id="view-rekap" class="view-section">
+            <div class="filter-container">
+                <div>
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Periode</label>
+                    <input type="month" id="filter-rekap-periode" class="form-control" onchange="renderRecapTable()">
+                </div>
+                <div id="filter-desa-rekap-container" style="display:none;">
+                    <label style="font-size:0.75rem; font-weight:700; display:block;">Filter Desa</label>
+                    <select id="filter-rekap-desa" class="form-control" onchange="renderRecapTable()">
+                        <option value="">Semua Desa</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="downloadExcel()">
+                    <i class="ph ph-file-xls"></i> Download Excel
+                </button>
+            </div>
+            <div class="table-card">
+                <table id="table-rekap-data">
+                    <thead>
+                        <tr>
+                            <th>Item Tagihan</th>
+                            <th style="text-align:right">Realisasi (Bln Ini)</th>
+                            <th style="text-align:right">Total YTD</th>
+                            <th style="text-align:right">Target</th>
+                            <th width="150">Pencapaian</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-rekap"></tbody>
+                    <tfoot>
+                        <tr style="background: #f8fafc; font-weight: bold;">
+                            <td colspan="4" style="text-align:right">TOTAL REALISASI BULAN INI</td>
+                            <td id="grand-total-rekap" style="text-align:right; color:var(--success)">Rp 0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= VIEW: CONFIG ================= -->
+        <div id="view-config" class="view-section">
+            <div class="form-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                    <h3>Kelola Item Tagihan</h3>
+                    <button class="btn btn-primary btn-sm" onclick="openConfigModal()">+ Tambah Item</button>
+                </div>
+                <div class="table-card">
+                    <table id="table-config">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Kategori</th>
+                                <th>Label Item</th>
+                                <th>Tipe</th>
+                                <th>Akses (Kelompok)</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body-config"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= VIEW: TARGETS ================= -->
+        <div id="view-targets" class="view-section">
+            <div class="form-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h3>Input Target Anggaran</h3>
+                    <button class="btn btn-sm" onclick="fetchData()"><i class="ph ph-arrows-clockwise"></i> Reload</button>
+                </div>
+                <div class="table-card">
+                    <table id="table-targets">
+                        <thead id="thead-targets"></thead>
+                        <tbody id="tbody-targets"></tbody>
+                    </table>
+                </div>
+                <small style="color:var(--text-light); display:block; margin-top:1rem;">*Klik pada kotak angka untuk mengedit.</small>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Notifikasi</div>
+
+    <!-- MODAL CONFIG -->
+    <div id="config-modal" class="modal-overlay">
+        <div class="form-card modal-content">
+            <h3 id="modal-title-config" style="margin-top:0">Tambah Item</h3>
+            <input type="hidden" id="cfg-old-id">
+            <div style="margin-bottom:1rem;"><label class="label-sm">ID Item</label><input type="text" id="cfg-item-id" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Kode Kategori</label><input type="text" id="cfg-cat-code" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Judul Kategori</label><input type="text" id="cfg-cat-title" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Label Item</label><input type="text" id="cfg-item-label" class="form-control"></div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Tipe</label>
+                <select id="cfg-tipe" class="form-control"><option value="Bulanan">Bulanan</option><option value="Tahunan">Tahunan</option></select>
+            </div>
+            <div style="margin-bottom:1rem;"><label class="label-sm">Hak Akses Kelompok</label><input type="text" id="cfg-groups" class="form-control"></div>
+
+            <div style="margin-bottom:1rem; padding:1rem; background:#f0fdf4; border:1px dashed #22c55e; border-radius:8px;">
+                <label style="font-weight:700; color:#15803d;">FITUR PEMBAGIAN OTOMATIS (SPLIT)</label>
+                <div style="margin-top:0.5rem;">
+                    <input type="checkbox" id="cfg-is-split"> <label for="cfg-is-split">Aktifkan Split?</label>
+                </div>
+                <div id="split-inputs" style="display:none; grid-template-columns: repeat(3, 1fr); gap:0.5rem; margin-top:0.5rem;">
+                    <input type="number" id="cfg-split-kel" class="form-control" placeholder="% Kelompok" value="0">
+                    <input type="number" id="cfg-split-desa" class="form-control" placeholder="% Desa" value="0">
+                    <input type="number" id="cfg-split-dah" class="form-control" placeholder="% Daerah" value="0">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+                <button class="btn btn-primary" style="flex:1" onclick="saveConfig()">Simpan</button>
+                <button class="btn" style="flex:1; background:#e2e8f0;" onclick="closeConfigModal()">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
