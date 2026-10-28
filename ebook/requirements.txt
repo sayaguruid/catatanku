@@ -1,0 +1,4 @@
+flask==3.0.3
+ebooklib==0.18
+pillow==10.4.0
+weasyprint==62.3
